@@ -1,0 +1,102 @@
+x_m,y_m,in_park,status,species,species_latin,dbh_in,crown_d_m_est,height_m_est,record_updated
+1.826,27.076,True,Full,pin oak,Quercus palustris,20.0,10.7,18.0,2017-11-03
+2.083,21.864,True,Full,pin oak,Quercus palustris,13.0,7.5,12.8,2017-11-03
+2.196,15.234,True,Full,pin oak,Quercus palustris,15.0,8.4,14.2,2023-06-29
+2.439,6.495,True,Full,pin oak,Quercus palustris,14.0,7.9,13.5,2017-10-26
+2.528,32.98,True,Stump,pin oak,Quercus palustris,0.0,2.0,3.0,2024-05-06
+2.841,2.233,True,Full,pin oak,Quercus palustris,10.0,6.1,10.5,2017-10-26
+6.085,11.326,True,Full,pin oak,Quercus palustris,16.0,8.8,15.0,2017-10-26
+7.037,28.736,True,Full,pin oak,Quercus palustris,10.0,6.1,10.5,2024-02-15
+10.177,2.142,True,Full,pin oak,Quercus palustris,15.0,8.4,14.2,2017-10-26
+10.217,7.335,True,Full,pin oak,Quercus palustris,19.0,10.2,17.2,2017-10-26
+12.317,24.868,True,Full,pin oak,Quercus palustris,26.0,13.4,22.5,2024-02-15
+13.175,32.597,True,Full,pin oak,Quercus palustris,6.0,4.3,7.5,2017-11-03
+13.659,18.103,True,Stump,pin oak,Quercus palustris,0.0,2.0,3.0,2024-05-06
+16.685,2.007,True,Full,pin oak,Quercus palustris,11.0,6.6,11.2,2017-10-26
+16.891,6.677,True,Stump,pin oak,Quercus palustris,0.0,2.0,3.0,2024-05-06
+17.901,36.89,True,Full,pin oak,Quercus palustris,8.0,5.2,9.0,2017-11-03
+22.784,2.297,True,Full,pin oak,Quercus palustris,15.0,8.4,14.2,2017-10-26
+23.011,6.991,True,Full,pin oak,Quercus palustris,20.0,10.7,18.0,2017-10-26
+24.135,36.6,True,Full,pin oak,Quercus palustris,12.0,7.0,12.0,2017-11-03
+25.245,8.117,True,Full,'Glauca' blue spruce,Picea pungens 'Glauca',3.0,2.9,5.2,2017-11-03
+27.246,31.901,True,Full,blue spruce,Picea pungens,4.0,3.4,6.0,2017-11-03
+35.768,31.372,True,Full,blue spruce,Picea pungens,4.0,3.4,6.0,2017-11-03
+39.948,2.222,True,Full,pin oak,Quercus palustris,13.0,7.5,12.8,2024-11-01
+42.183,8.596,True,Full,pin oak,Quercus palustris,24.0,12.5,21.0,2024-05-13
+42.747,28.679,True,Full,pin oak,Quercus palustris,9.0,5.6,9.8,2017-10-26
+42.791,37.318,True,Full,pin oak,Quercus palustris,10.0,6.1,10.5,2017-10-26
+45.905,32.999,True,Full,northern red oak,Quercus rubra,9.0,5.6,9.8,2017-10-26
+46.278,2.34,True,Full,pin oak,Quercus palustris,16.0,8.8,15.0,2024-11-01
+48.368,11.542,True,Full,pin oak,Quercus palustris,18.0,9.8,16.5,2024-10-03
+-88.952,-7.957,False,Stump,Japanese pagoda tree,Styphnolobium japonicum,8.0,5.2,9.0,2020-02-13
+-88.367,-21.643,False,Stump,Unknown,Unknown,7.0,4.7,8.2,2020-02-13
+-87.949,-13.452,False,Full,silver linden,Tilia tomentosa,3.0,2.9,5.2,2026-03-03
+-86.599,-25.51,False,Retired,arborvitae,Thuja occidentalis,3.0,2.9,5.2,2023-08-28
+-55.785,53.657,False,Full,white oak,Quercus alba,12.0,7.0,12.0,2026-03-03
+-52.034,54.365,False,Full,white oak,Quercus alba,12.0,7.0,12.0,2026-03-03
+-43.199,54.612,False,Full,white oak,Quercus alba,12.0,7.0,12.0,2026-03-03
+-37.123,54.294,False,Full,white oak,Quercus alba,12.0,7.0,12.0,2026-03-03
+-35.852,64.862,False,Full,goldenrain tree,Koelreuteria paniculata,9.0,5.6,9.8,2026-03-03
+-33.552,93.62,False,Retired,American basswood,Tilia americana,6.0,4.3,7.5,2021-08-13
+-33.308,54.2,False,Full,white oak,Quercus alba,12.0,7.0,12.0,2026-03-03
+-32.746,69.764,False,Full,'Fastigiata' European hornbeam,Carpinus betulus 'Fastigiata',2.0,2.4,4.5,2026-03-24
+-31.428,65.095,False,Full,goldenrain tree,Koelreuteria paniculata,7.0,4.7,8.2,2026-03-03
+-28.892,89.596,False,Full,'Shawnee Brave' Bald cypress,Taxodium distichum 'Shawnee Brave',3.0,2.9,5.2,2026-03-04
+-28.643,74.959,False,Full,'Fastigiata' European hornbeam,Carpinus betulus 'Fastigiata',3.0,2.9,5.2,2026-03-24
+-27.657,64.827,False,Full,goldenrain tree,Koelreuteria paniculata,9.0,5.6,9.8,2026-03-03
+-25.941,78.351,False,Full,Japanese pagoda tree,Styphnolobium japonicum,12.0,7.0,12.0,2026-03-24
+-24.875,100.015,False,Full,Callery pear,Pyrus calleryana,18.0,9.8,16.5,2026-04-19
+-24.136,70.589,False,Full,Japanese tree lilac,Syringa reticulata,8.0,5.2,9.0,2026-03-24
+-23.794,74.06,False,Full,Japanese tree lilac,Syringa reticulata,7.0,4.7,8.2,2026-03-24
+-20.575,75.385,False,Full,Japanese tree lilac,Syringa reticulata,7.0,4.7,8.2,2026-03-24
+-19.987,81.907,False,Retired,American basswood,Tilia americana,5.0,3.8,6.8,2025-08-28
+-19.173,69.111,False,Full,Callery pear,Pyrus calleryana,17.0,9.3,15.8,2026-03-24
+-19.049,25.67,False,Full,Thornless honeylocust,Gleditsia triacanthos var. inermis,7.0,4.7,8.2,2026-03-03
+-19.028,-6.152,False,Full,Callery pear,Pyrus calleryana,12.0,7.0,12.0,2026-03-03
+-19.013,-18.91,False,Retired,Callery pear,Pyrus calleryana,11.0,6.6,11.2,2025-08-28
+-19.012,-27.427,False,Stump,Callery pear,Pyrus calleryana,9.0,5.6,9.8,2020-02-13
+-19.007,-36.327,False,Full,Callery pear,Pyrus calleryana,10.0,6.1,10.5,2026-03-03
+-19.002,-45.593,False,Full,Callery pear,Pyrus calleryana,10.0,6.1,10.5,2026-03-03
+-16.685,73.312,False,Full,Callery pear,Pyrus calleryana,14.0,7.9,13.5,2026-03-24
+-12.647,63.422,False,Full,Callery pear,Pyrus calleryana,12.0,7.0,12.0,2026-03-04
+-8.59,72.067,False,Retired,American basswood,Tilia americana,4.0,3.4,6.0,2025-08-28
+-4.447,-35.253,False,Full,'Skyline' Thornless honeylocust,Gleditsia triacanthos var. inermis 'Skyline',3.0,2.9,5.2,2026-03-12
+-4.429,-41.837,False,Full,'Skyline' Thornless honeylocust,Gleditsia triacanthos var. inermis 'Skyline',3.0,2.9,5.2,2026-03-12
+-4.391,-55.431,False,Full,northern red oak,Quercus rubra,10.0,6.1,10.5,2026-03-12
+-4.303,8.277,False,Full,swamp white oak,Quercus bicolor,3.0,2.9,5.2,2026-03-12
+-4.124,24.713,False,Full,littleleaf linden,Tilia cordata,4.0,3.4,6.0,2026-03-12
+-4.014,31.235,False,Stump,pin oak,Quercus palustris,9.0,5.6,9.8,2024-05-06
+-3.916,37.025,False,Retired,pin oak,Quercus palustris,1.0,2.0,3.8,2026-05-31
+1.82,82.595,False,Retired,Thornless honeylocust,Gleditsia triacanthos var. inermis,16.0,8.8,15.0,2026-03-19
+9.238,53.21,False,Full,Japanese zelkova,Zelkova serrata,7.0,4.7,8.2,2026-03-09
+15.103,53.574,False,Full,Japanese zelkova,Zelkova serrata,6.0,4.3,7.5,2026-03-09
+21.498,53.809,False,Full,Japanese zelkova,Zelkova serrata,8.0,5.2,9.0,2026-03-09
+27.291,53.464,False,Full,Japanese zelkova,Zelkova serrata,7.0,4.7,8.2,2026-03-09
+32.737,53.599,False,Full,Japanese zelkova,Zelkova serrata,6.0,4.3,7.5,2026-03-09
+37.469,53.51,False,Full,Japanese zelkova,Zelkova serrata,7.0,4.7,8.2,2026-03-09
+42.681,53.768,False,Full,Japanese zelkova,Zelkova serrata,7.0,4.7,8.2,2026-03-09
+48.005,53.668,False,Full,Japanese zelkova,Zelkova serrata,7.0,4.7,8.2,2026-03-09
+50.308,36.786,False,Full,pin oak,Quercus palustris,11.0,6.6,11.2,2026-09-16
+50.887,31.9,False,Full,pin oak,Quercus palustris,13.0,7.5,12.8,2017-10-26
+65.173,-23.013,False,Stump,littleleaf linden,Tilia cordata,4.0,3.4,6.0,2024-11-18
+65.198,-29.596,False,Full,northern red oak,Quercus rubra,6.0,4.3,7.5,2026-03-12
+65.226,-36.911,False,Retired,littleleaf linden,Tilia cordata,5.0,3.8,6.8,2026-03-13
+65.275,-49.53,False,Full,northern red oak,Quercus rubra,13.0,7.5,12.8,2026-03-12
+65.298,-55.626,False,Full,littleleaf linden,Tilia cordata,8.0,5.2,9.0,2026-03-12
+65.368,-73.731,False,Stump,Callery pear,Pyrus calleryana,0.0,2.0,3.0,2026-03-12
+74.505,27.743,False,Full,Callery pear,Pyrus calleryana,4.0,3.4,6.0,2026-03-04
+74.558,18.904,False,Full,Callery pear,Pyrus calleryana,12.0,7.0,12.0,2026-03-04
+75.836,-36.065,False,Full,'Regal Prince' Oak,Quercus 'Regal Prince',6.0,4.3,7.5,2026-03-11
+75.851,-43.929,False,Full,'Regal Prince' Oak,Quercus 'Regal Prince',3.0,2.9,5.2,2026-03-11
+75.866,-51.549,False,Full,'Regal Prince' Oak,Quercus 'Regal Prince',5.0,3.8,6.8,2026-03-11
+86.083,-29.426,False,Full,Callery pear,Pyrus calleryana,10.0,6.1,10.5,2026-03-04
+86.454,53.84,False,Full,Japanese zelkova,Zelkova serrata,8.0,5.2,9.0,2026-03-09
+86.684,43.872,False,Full,goldenrain tree,Koelreuteria paniculata,4.0,3.4,6.0,2017-10-24
+88.39,63.583,False,Full,goldenrain tree,Koelreuteria paniculata,11.0,6.6,11.2,2026-03-09
+88.5,-3.602,False,Full,Callery pear,Pyrus calleryana,12.0,7.0,12.0,2026-03-04
+90.037,43.862,False,Full,goldenrain tree,Koelreuteria paniculata,5.0,3.8,6.8,2017-10-24
+93.133,53.478,False,Full,Japanese zelkova,Zelkova serrata,8.0,5.2,9.0,2026-03-09
+93.866,-8.84,False,Full,Callery pear,Pyrus calleryana,10.0,6.1,10.5,2026-03-04
+94.425,63.571,False,Full,goldenrain tree,Koelreuteria paniculata,8.0,5.2,9.0,2026-03-09
+100.125,63.56,False,Full,goldenrain tree,Koelreuteria paniculata,10.0,6.1,10.5,2026-03-09
+101.794,54.618,False,Full,Japanese zelkova,Zelkova serrata,9.0,5.6,9.8,2026-03-09
