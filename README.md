@@ -1,6 +1,6 @@
 # Court Square Park / Long Island City
 
-A fullscreen, interactive map of Long Island City and a 3D field-scan viewer for Court Square Park. The map uses real NYC building footprints, roof heights and street geometry. The park stays highlighted in red and shows its as-built layout, measured from an iPhone LiDAR scan on October 28, 2026.
+A fullscreen, interactive map of Long Island City, a 3D field-scan viewer and a LOD3 site model of Court Square Park. The map uses real NYC building footprints, roof heights and street geometry. The park stays highlighted in red and shows its as-built layout, measured from an iPhone LiDAR scan on October 28, 2026.
 
 **Website:** https://ixthecreator.github.io/court-square-map/
 
@@ -13,6 +13,7 @@ A fullscreen, interactive map of Long Island City and a 3D field-scan viewer for
 - Move the height slider between flat footprints and the recorded roof heights.
 - Select the red park or **Scan** to open the field scan. On a desktop-sized window it downloads automatically (150 MB). On phones, narrow windows or with Data Saver on, select **Load field scan**.
 - **Symmetric fill** shows or hides the parts of the oval that were mirrored from the scanned side (see below).
+- Select **Model** for the LOD3 site model built from the scan (3.7 MB, loaded the first time you open it). Drag to orbit, scroll or use + / − to zoom; the orientation button returns to the default view. The Rhino 8 file is in [`data/modeling/`](data/modeling/).
 - Use the pin button to add an observation inside the park. In the scan, choose **Add note** and click a surface; notes on the field scan show latitude, longitude and height above grade.
 
 Camera preferences, height settings, the symmetric-fill choice and up to 12 observation drafts are kept in this browser's local storage for the site. Clearing site data removes them.
@@ -59,7 +60,7 @@ The embedded data snapshot contains **3,699 building footprints** and **1,213 st
 
 | Path | Contents |
 |---|---|
-| `index.html` | The whole site: map, scan viewer and embedded city data |
+| `index.html` | The whole site: map, scan viewer, model viewer and embedded city data |
 | `scan/` | Field-scan GLB parts and manifest |
 | `data/` | Park layer, scan georeference, modeling kit |
 | `docs/` | As-built plan image |
