@@ -1,0 +1,38 @@
+{
+ "version": 1,
+ "name": "court-square-park-2026-10-28.glb",
+ "title": "Court Square Park field scan",
+ "captured": "2026-10-28",
+ "device": "iPhone 16 Pro LiDAR",
+ "bytes": 150292976,
+ "sha256": "507df26a332a1d6285c2776efc6f06f2e209c8cabd536381c2e57b8dbd0fe5a7",
+ "triangles": 6740357,
+ "vertices": 3470291,
+ "materials": [
+  "scan",
+  "inferred"
+ ],
+ "frame": "park frame: x = u (toward Thomson Ave), y = up, z = -v (v toward Jackson Ave), meters; true north is 27.6 deg clockwise from +v",
+ "parts": [
+  {
+   "path": "court-square-park-2026-10-28.glb.part000",
+   "bytes": 41943040,
+   "sha256": "348b318541cba968676ceb435d9135d2f677a574349491c5fb23d38c15c6c1b9"
+  },
+  {
+   "path": "court-square-park-2026-10-28.glb.part001",
+   "bytes": 41943040,
+   "sha256": "6689b57367043cc37f04ace135b1631aee3b8f61fd254db33071952175b2ecc7"
+  },
+  {
+   "path": "court-square-park-2026-10-28.glb.part002",
+   "bytes": 41943040,
+   "sha256": "993e32fecf4729af7a92dd9d29baffdd957e89d724435c12ae5b604e29a9e30b"
+  },
+  {
+   "path": "court-square-park-2026-10-28.glb.part003",
+   "bytes": 24463856,
+   "sha256": "72b97ab323cbf45dfc375026c5300d15ebe53b7db5520a5cac4c77640dec1f24"
+  }
+ ]
+}
