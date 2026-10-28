@@ -353,8 +353,29 @@ def envelope(form, t):
     return 1 - t
 
 
+_ICO = {}
+
+
+def lobed_crown(O, lobes, sub, rng, squash=0.85, rough=0.07):
+    """One closed crown surface: the outer hull of overlapping leaf lobes (ellipsoids, z squashed) seen from the crown
+    centre O, with a little leafy noise. A single star-shaped mesh has no hidden inner faces and stays smooth."""
+    if sub not in _ICO:
+        _ICO[sub] = icosphere(sub)
+    D, F = _ICO[sub]
+    O = np.asarray(O, float); sc = np.array([1.0, 1.0, 1.0 / squash])
+    ds = D * sc; a = (ds * ds).sum(1)
+    reach = np.full(len(D), 0.3)
+    for c, r in lobes:
+        cs = (np.asarray(c, float) - O) * sc
+        b = ds @ cs; disc = b * b - a * (cs @ cs - r * r)
+        reach = np.maximum(reach, np.where(disc >= 0, (b + np.sqrt(np.maximum(disc, 0))) / a, 0))
+    k = rng.normal(size=(6, 3)) * rng.uniform(3, 7, size=(6, 1)); ph = rng.uniform(0, 2 * math.pi, 6)
+    reach *= 1 + rough * np.sin(D @ k.T + ph).sum(1) / 6 ** 0.5
+    return O + D * reach[:, None], F
+
+
 def tree(x, y, z, species, dbh_in, height, crown_d, seed):
-    """Procedural tree: tapered trunk, main limbs and leaf clusters inside a species envelope.
+    """Procedural tree: tapered trunk, main limbs and a lobed crown inside a species envelope.
     Returns ((V, F) bark, (V, F) foliage, foliage colour)."""
     rng = np.random.default_rng(seed)
     form, colour = TREE_FORMS.get(species, ('round', (86, 124, 62)))
@@ -376,21 +397,18 @@ def tree(x, y, z, species, dbh_in, height, crown_d, seed):
     trunk_top = crown_base + (height - crown_base) * (0.55 if form in ('pyramidal', 'columnar') else 0.25)
     bark.append(revolve([(r_trunk * 1.25, 0), (r_trunk, 0.4), (r_trunk * 0.8, crown_base), (r_trunk * 0.35, trunk_top)], (x, y, z), 10))
     span = height - crown_base
-    n_clusters = int(np.clip(10 + crown_d * 2.2, 14, 40))
-    for k in range(n_clusters + 3):
-        if k >= n_clusters:   # a few large clusters along the axis fill the core of the crown
-            t = 0.3 + 0.2 * (k - n_clusters); env = envelope(form, t) * R; rad, ang = 0.0, 0.0
-        else:
-            t = rng.uniform(0.06, 0.94)
-            env = envelope(form, t) * R
-            ang = rng.uniform(0, 2 * math.pi)
-            rad = env * math.sqrt(rng.uniform(0.05, 0.8))
-        cx_, cy_, cz_ = x + rad * math.cos(ang), y + rad * math.sin(ang), z + crown_base + t * span
-        rc = max(0.7, (0.44 + 0.16 * rng.random()) * max(env, R * 0.42))
-        V = SPH1[0] * np.array([rc, rc, rc * 0.8]) + np.array([cx_, cy_, cz_])
-        V += rng.normal(0, rc * 0.06, V.shape)
-        leaves.append((V, SPH1[1]))
-        if k < 5 and rad > 0.6:   # a few visible limbs from the trunk to the outer clusters
-            start = (x, y, z + crown_base + 0.3 * (cz_ - z - crown_base))
-            bark.append(tube([start, (cx_ * 0.6 + x * 0.4, cy_ * 0.6 + y * 0.4, cz_ - rc * 0.6)], max(0.03, r_trunk * 0.35), 6))
+    O = (x, y, z + crown_base + 0.5 * span)
+    lobes = [((x, y, z + crown_base + t * span), envelope(form, t) * R * 0.75) for t in (0.3, 0.5, 0.7)]
+    for k in range(int(np.clip(6 + crown_d, 8, 18))):
+        t = rng.uniform(0.1, 0.9)
+        env = envelope(form, t) * R
+        ang = rng.uniform(0, 2 * math.pi)
+        rad = env * math.sqrt(rng.uniform(0.15, 0.85))
+        c = (x + rad * math.cos(ang), y + rad * math.sin(ang), z + crown_base + t * span)
+        rc = max(0.6, (0.45 + 0.15 * rng.random()) * max(env, R * 0.45))
+        lobes.append((c, rc))
+        if k < 5 and rad > 0.6:   # a few visible limbs from the trunk towards the outer lobes
+            start = (x, y, z + crown_base + 0.3 * (c[2] - z - crown_base))
+            bark.append(tube([start, (c[0] * 0.6 + x * 0.4, c[1] * 0.6 + y * 0.4, c[2] - rc * 0.6)], max(0.03, r_trunk * 0.35), 6))
+    leaves.append(lobed_crown(O, lobes, 4 if crown_d >= 10 else 3, rng))
     return merge(bark), merge(leaves), colour
