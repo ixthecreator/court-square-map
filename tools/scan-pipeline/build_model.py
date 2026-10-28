@@ -1,22 +1,35 @@
-"""LOD3 site model of Court Square Park for Rhino 8, built from the scan measurements and NYC data.
+"""Detailed site model of Court Square Park for Rhino 8, built from the scan measurements and NYC data.
 
-Same park frame as every other file here: meters, x = u along the courthouse edge toward Thomson Ave,
-y = v toward Jackson Ave, z up, z = 0 at park grade (NAVD88 5.28 m). Ground levels are flat per surface
-type (roads 15 cm below the curb); the real site falls about 0.4 m from Jackson Ave to the courthouse.
+Park frame as everywhere here: meters, x = u along the courthouse edge toward Thomson Ave, y = v toward Jackson Ave,
+z up, z = 0 at park grade (NAVD88 5.28 m).
 
-Usage: python scripts/build_model.py        (needs rhino3dm, shapely, mapbox_earcut, numpy)
-Writes model/court_square_park_LOD3.3dm and model/court_square_park_LOD3_preview.glb
+- terrain: thin-plate spline through NYC ground spot elevations (roadbed points raised 15 cm to curb level)
+- ground surfaces draped on the terrain; roadbed 15 cm below the curb; granite curb band, planting edge band, tree pits
+- paving joints: 0.61 m pavers around the park and on the forecourt, 5 ft flags elsewhere, radial saw cuts on the ring path
+- furniture from the scan positions: World's Fair benches, chess tables, chain-and-bollard lawn fence, spear-top rail fence,
+  Parks lamppost, sign, bus shelter, spray-pad drain
+- species-based procedural trees (NYC Forestry points, crowns estimated from DBH)
+- buildings: NYC 3D Building Model (2014 survey, LOD1/2 hybrid) where the building predates 2015, otherwise the current
+  footprint extruded to its recorded roof height
+
+Usage: python scripts/build_model.py   (needs rhino3dm, shapely, mapbox_earcut, scipy, pyogrio, pyproj)
+Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb and
+       model/court_square_park_LOD3_web.glb (the website copy, without One Court Square)
 """
-import csv, json, math, os, struct, sys
+import csv, json, math, os, sys
 import numpy as np
 import rhino3dm as r
-import mapbox_earcut as earcut
-from shapely.geometry import Polygon, MultiPolygon, LineString, Point, box
+import pyogrio, pyproj
+from scipy.interpolate import RBFInterpolator
+from shapely import wkb, contains_xy
+from shapely.geometry import Polygon, LineString, MultiLineString, Point, box
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from parkframe import ROOT, polygons_uv, NORTH, EAST, ORIGIN_LL
+from parkframe import ROOT, polygons_uv, uv, NORTH, EAST, ORIGIN_LL
+import model_parts as mp
+from glb_writer import write_glb
 
 D = lambda *p: os.path.join(ROOT, *p)
 site = json.load(open(D('model', 'site_local.json')))
@@ -24,29 +37,73 @@ feat = json.load(open(D('scan', 'features.json')))
 lawn_e, ring_e, sym, pad = feat['lawn_oval'], feat['ring_outer'], feat['symmetry'], feat['spray_pad']
 GRADE = site['frame']['park_grade_navd88_m']
 EXTENT = box(-45, -45, 95, 85)              # streets and ground
-BLDG_EXTENT = box(-90, -110, 150, 170)       # buildings (keeps One Court Square in view)
-
-# ------------------------------------------------------------------ record types
-prisms, cylinders, meshes, curves, dots = [], [], [], [], []
-
-
-def prism(layer, geom, z0, z1, color=None, name='', src='model'):
-    geom = geom.buffer(0) if not geom.is_valid else geom
-    for g in getattr(geom, 'geoms', [geom]):
-        if isinstance(g, Polygon) and g.area > 0.0005:
-            prisms.append(dict(layer=layer, poly=orient(g, 1.0), z0=z0, z1=z1, color=color, name=name, src=src))
+BLDG_EXTENT = box(-90, -110, 150, 170)       # buildings
+WEB_EXCLUDE = ('BIN 4307108',)              # One Court Square blocks the website's default camera
+objs, curves, dots = [], [], []             # objs: dict(layer, V, F, color, smooth, name, src)
 
 
-def cylinder(layer, x, y, radius, z0, z1, color=None, name='', src='model'):
-    cylinders.append(dict(layer=layer, x=x, y=y, r=radius, z0=z0, z1=z1, color=color, name=name, src=src))
+def add(layer, VF, color, name='', src='', smooth=False):
+    V, F = np.asarray(VF[0], float), np.asarray(VF[1], int)
+    if len(F):   # drop zero-area triangles (revolve tips, slivers from clipping): Rhino flags them as invalid
+        area = np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1)
+        F = F[area > 1e-9]
+    if len(F):
+        objs.append(dict(layer=layer, V=np.asarray(V, float), F=np.asarray(F, int), color=tuple(color), smooth=smooth, name=name, src=src))
 
 
-def frame_box(c, a, n, s0, s1, d0, d1):
-    """Rectangle in a local frame: c + s*a + d*n."""
-    pts = [(c[0] + s * a[0] + d * n[0], c[1] + s * a[1] + d * n[1]) for s, d in [(s0, d0), (s1, d0), (s1, d1), (s0, d1)]]
-    return Polygon(pts)
+def parts(path):
+    out = []
+    for f in json.load(open(path))['features']:
+        for o, hs in polygons_uv(f['geometry']):
+            p = Polygon(o, hs)
+            out.append(p if p.is_valid else p.buffer(0))
+    return out
 
 
+def polys(g):
+    return [p for p in getattr(g, 'geoms', [g]) if isinstance(p, Polygon) and p.area > 0.02]
+
+
+# ------------------------------------------------------------------ terrain
+roadbed = unary_union([p for p in parts(D('data', 'plan2_roadbed.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
+footprints = []
+for f in json.load(open(D('data', 'buildings2.geojson')))['features']:
+    pr = f['properties']
+    for o, hs in polygons_uv(f['geometry']):
+        p = Polygon(o, hs).buffer(0)
+        if p.intersects(BLDG_EXTENT) and p.area > 1:
+            footprints.append(dict(poly=p, bin=str(pr.get('bin')), year=int(pr.get('construction_year') or 0),
+                                   h=float(pr.get('height_roof') or 0) * 0.3048, ground=float(pr.get('ground_elevation') or 0) * 0.3048))
+buildings_all = unary_union([b['poly'] for b in footprints])
+gx, gy, gz = [], [], []
+road_all = unary_union(parts(D('data', 'plan2_roadbed.geojson')))
+for f in json.load(open(D('data', 'plan2_elevation_points.geojson')))['features']:
+    if f['properties'].get('feat_code') != '3000':       # 3020 points are roof heights
+        continue
+    x, y = uv(*f['geometry']['coordinates'])
+    if contains_xy(buildings_all, x, y):
+        continue
+    z = float(f['properties']['elevation']) * 0.3048
+    gx.append(x); gy.append(y); gz.append(z + (0.15 if contains_xy(road_all, x, y) else 0.0) - GRADE)
+_rbf = RBFInterpolator(np.column_stack([gx, gy]), np.array(gz), kernel='thin_plate_spline', smoothing=3.0)
+# sample once on a 1 m grid and interpolate bilinearly (fast, and keeps far extrapolation tame)
+_GX = np.arange(-100, 161, 1.0); _GY = np.arange(-120, 181, 1.0)
+_GRID = _rbf(np.column_stack([np.repeat(_GX, len(_GY)), np.tile(_GY, len(_GX))])).reshape(len(_GX), len(_GY))
+
+
+def T(x, y):
+    x = np.clip(np.atleast_1d(np.asarray(x, float)), _GX[0], _GX[-1] - 1e-6); y = np.clip(np.atleast_1d(np.asarray(y, float)), _GY[0], _GY[-1] - 1e-6)
+    i = ((x - _GX[0]) // 1).astype(int); j = ((y - _GY[0]) // 1).astype(int)
+    fx, fy = x - _GX[i], y - _GY[j]
+    return (_GRID[i, j] * (1 - fx) * (1 - fy) + _GRID[i + 1, j] * fx * (1 - fy) + _GRID[i, j + 1] * (1 - fx) * fy + _GRID[i + 1, j + 1] * fx * fy)
+
+
+Tp = lambda x, y: float(T(x, y)[0])
+park = Polygon(site['park'])
+print(f'terrain from {len(gz)} ground spot elevations; park centre {Tp(31, 22):+.2f} m, Jackson edge {Tp(31, 41):+.2f}, '
+      f'courthouse edge {Tp(31, 0):+.2f}, Thomson road {Tp(60, 12) - 0.15:+.2f}')
+
+# ------------------------------------------------------------------ zones (same layout as the scan-based plan)
 def ellipse(e, grow=0.0, n=144):
     c, s = math.cos(math.radians(e['theta_deg'])), math.sin(math.radians(e['theta_deg']))
     a, b = e['a'] + grow, e['b'] + grow
@@ -54,127 +111,122 @@ def ellipse(e, grow=0.0, n=144):
             for t in [2 * math.pi * i / n for i in range(n)]]
 
 
-def outer_parts(path, key='geometry'):
-    out = []
-    for f in json.load(open(path))['features']:
-        for o, hs in polygons_uv(f[key]):
-            p = Polygon(o, hs)
-            out.append(p if p.is_valid else p.buffer(0))
-    return out
-
-
-# ------------------------------------------------------------------ ground
-park = Polygon(site['park'])
-lawn = Polygon(ellipse(lawn_e))
+lawn = Polygon(ellipse(lawn_e)); lawn_c = (lawn_e['cx'], lawn_e['cy'])
 lawn_curb = lawn.buffer(0.2).difference(lawn)
 spray = Polygon(pad['hull']).difference(lawn.buffer(0.2))
 egg_pts = ellipse(ring_e)
-cx, cy = np.mean([p[0] for p in pad['hull'][:-1]]), np.mean([p[1] for p in pad['hull'][:-1]])
+pcx, pcy = np.mean([p[0] for p in pad['hull'][:-1]]), np.mean([p[1] for p in pad['hull'][:-1]])
 w = ring_e.get('path_width_m', 2.4)
 for x, y in pad['hull'][:-1]:
-    dd = math.hypot(x - cx, y - cy) or 1
-    egg_pts.append((x + (x - cx) / dd * w, y + (y - cy) / dd * w))
+    dd = math.hypot(x - pcx, y - pcy) or 1
+    egg_pts.append((x + (x - pcx) / dd * w, y + (y - pcy) / dd * w))
 egg = Polygon(egg_pts).convex_hull
 axis_u = sym['axis_u']
 south_fan = Polygon([p for p in egg.exterior.coords if p[1] < 7] + [(axis_u - 6.2, 0.0), (axis_u + 6.2, 0.0)]).convex_hull
-# connections read off the scan ortho (1 m grid); approximate to ~0.3 m
-nw_path = Polygon([(21.6, 33.8), (24.6, 35.9), (28.4, 41.1), (23.6, 41.1), (21.9, 37.5)])
-ne_path = Polygon([(40.9, 34.6), (42.3, 37.6), (41.9, 41.1), (37.2, 41.1), (38.2, 37.8), (38.4, 36.1)])
+# entrances run on to the sidewalk; the landscape clip trims them at the sidewalk's inner edge
+nw_path = Polygon([(21.6, 33.8), (24.6, 35.9), (29.4, 42.6), (23.4, 42.6), (21.9, 37.5)])
+ne_path = Polygon([(40.9, 34.6), (42.3, 37.6), (41.8, 42.6), (36.8, 42.6), (38.2, 37.8), (38.4, 36.1)])
 table_plaza = box(14.9, 15.0, 19.5, 27.6)
-bistro_plaza = box(44.5, 16.4, 51.2, 25.8)
-
-roadbed = unary_union([p for p in outer_parts(D('data', 'plan2_roadbed.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
-medians = unary_union([p for p in outer_parts(D('data', 'plan2_median.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
-bldg_polys = []
-for f in json.load(open(D('data', 'buildings.geojson')))['features']:
-    pr = f['properties']
-    for o, hs in polygons_uv(f['geometry']):
-        p = Polygon(o, hs).buffer(0)
-        if p.intersects(BLDG_EXTENT):
-            bldg_polys.append((p, float(pr.get('height_roof') or 0) * 0.3048, float(pr.get('ground_elevation') or 0) * 0.3048, pr.get('bin')))
-buildings_all = unary_union([b[0] for b in bldg_polys])
+bistro_plaza = box(44.5, 16.4, 53.0, 25.8)    # opens onto the Thomson Ave sidewalk
+medians = unary_union([p for p in parts(D('data', 'plan2_median.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
 non_road = EXTENT.difference(roadbed).difference(medians)
-# the park block: the piece of non-road ground that holds the park
 park_block = max(getattr(non_road, 'geoms', [non_road]), key=lambda g: g.intersection(park).area)
-landscape = park_block.intersection(park.union(box(park.bounds[0], 0, park.bounds[2] + 4, park.bounds[3] + 0.3))).difference(buildings_all)
-
-sidewalks = unary_union([p for p in outer_parts(D('data', 'plan2_sidewalk.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
-sidewalks = sidewalks.difference(landscape).difference(buildings_all)   # drops the pre-2025 paths inside the park
-forecourt_box = box(-0.5, -17.8, 51.5, 0.0)
-forecourt = sidewalks.intersection(forecourt_box)
-sidewalks = sidewalks.difference(forecourt_box)
-paving = unary_union([egg, south_fan, nw_path, ne_path, table_plaza, bistro_plaza]).intersection(landscape).difference(lawn.buffer(0.2)).difference(spray)
-planting = landscape.difference(paving).difference(lawn.buffer(0.2)).difference(spray)
-other = non_road.difference(sidewalks).difference(forecourt).difference(landscape).difference(buildings_all).difference(
-    unary_union([egg, south_fan]))
-
-# courthouse stair (approximate: 10 risers of 16.5 cm, 33 cm treads, 9 m wide on the axis)
-FACADE_V = -17.4
-STAIR_W, RISE, TREAD, N_STEPS = 9.0, 0.165, 0.33, 10
+sidewalks = unary_union([p for p in parts(D('data', 'plan2_sidewalk.geojson')) if p.intersects(EXTENT)]).intersection(EXTENT)
+# NYC's sidewalk layer still holds the pre-2025 park paths: drop those, keep every real sidewalk outside the park
+sidewalks = sidewalks.difference(park).difference(buildings_all)
+# park landscape: the property plus the strip between it and the Thomson / Jackson sidewalks
+landscape = park_block.intersection(park.union(box(park.bounds[0], 0, park.bounds[2] + 4, park.bounds[3] + 0.3))).difference(sidewalks).difference(buildings_all)
+FACADE_V, STAIR_W, RISE, TREAD, N_STEPS = -17.4, 9.0, 0.165, 0.33, 10
+forecourt = sidewalks.intersection(box(-0.5, -17.8, 51.5, 0.0))
+sidewalks = sidewalks.difference(box(-0.5, -17.8, 51.5, 0.0))
 stair_cut = box(axis_u - STAIR_W / 2, FACADE_V, axis_u + STAIR_W / 2, FACADE_V + N_STEPS * TREAD)
 forecourt = forecourt.difference(stair_cut)
+paving = unary_union([egg, south_fan, nw_path, ne_path, table_plaza, bistro_plaza]).intersection(landscape).difference(lawn.buffer(0.2)).difference(spray)
+planting = landscape.difference(paving).difference(lawn.buffer(0.2)).difference(spray)
+other = non_road.difference(sidewalks).difference(forecourt).difference(landscape).difference(buildings_all).difference(unary_union([egg, south_fan]))
 
-BOT = -0.40
-prism('10_Ground::Roadbed', roadbed, BOT, -0.15, src='NYC planimetric roadbed')
-prism('10_Ground::Median', medians, BOT, 0.0, src='NYC planimetric median')
-prism('10_Ground::Sidewalk', sidewalks, BOT, 0.0, src='NYC planimetric sidewalk')
-prism('10_Ground::Forecourt', forecourt, BOT, 0.0, src='NYC planimetric sidewalk')
-prism('10_Ground::Other ground', other, BOT, 0.0, src='lots outside the park block')
-prism('10_Ground::Park paving', paving, BOT, 0.0, src='scan')
-prism('10_Ground::Planting beds', planting, BOT, 0.05, src='scan')
-prism('10_Ground::Lawn', lawn, BOT, 0.03, src='scan')
-prism('10_Ground::Lawn curb', lawn_curb, BOT, 0.10, src='scan')
-prism('10_Ground::Spray pad', spray, BOT, -0.02, src='scan')
-prism('10_Ground::Forecourt', stair_cut, BOT, 0.0, src='approx')
+# street trees get pits in the sidewalk; granite curb band along the roadbed; concrete band where planting meets the sidewalk
+REMOVED = {(25.245, 8.117), (27.246, 31.901), (35.768, 31.372)}
+trees = [t for t in csv.DictReader(open(D('model', 'trees.csv'))) if t['status'] == 'Full'
+         and (round(float(t['x_m']), 3), round(float(t['y_m']), 3)) not in REMOVED and EXTENT.contains(Point(float(t['x_m']), float(t['y_m'])))]
+pits = unary_union([box(float(t['x_m']) - 0.75, float(t['y_m']) - 0.75, float(t['x_m']) + 0.75, float(t['y_m']) + 0.75)
+                    for t in trees if sidewalks.contains(Point(float(t['x_m']), float(t['y_m'])))]).intersection(sidewalks)
+curb_band = sidewalks.intersection(roadbed.buffer(0.18)).difference(pits)
+edge_band = sidewalks.union(forecourt).intersection(planting.buffer(0.42)).difference(pits).difference(curb_band)
+sidewalks = sidewalks.difference(pits).difference(curb_band).difference(edge_band)
+forecourt = forecourt.difference(edge_band)
+pavers_zone = park_block.buffer(0.5)        # pigmented 2 ft pavers around the park, 5 ft flags elsewhere
+
+GROUND = [  # layer, geometry, offset, colour, grid
+    ('10_Ground::Roadbed', roadbed, -0.15, (70, 73, 78), 3.0),
+    ('10_Ground::Median', medians, 0.0, (150, 150, 145), 2.0),
+    ('10_Ground::Sidewalk', sidewalks, 0.0, (206, 204, 196), 2.0),
+    ('10_Ground::Curb stone', curb_band, 0.0, (178, 178, 176), 1.0),
+    ('10_Ground::Planting edge band', edge_band, 0.01, (192, 192, 186), 1.0),
+    ('10_Ground::Tree pits', pits, -0.04, (92, 72, 54), 1.0),
+    ('10_Ground::Forecourt', forecourt, 0.0, (214, 208, 196), 2.0),
+    ('10_Ground::Other ground', other, 0.0, (170, 170, 165), 3.0),
+    ('10_Ground::Park paving', paving, 0.0, (176, 178, 176), 1.5),
+    ('10_Ground::Planting beds', planting, 0.05, (88, 82, 60), 1.5),
+    ('10_Ground::Lawn', lawn, 0.03, (96, 148, 78), 1.5),
+    ('10_Ground::Lawn curb', lawn_curb, 0.10, (236, 236, 230), 0.8),
+    ('10_Ground::Spray pad', spray, -0.02, (160, 182, 198), 1.0),
+]
+for layer, geom, off, col, grid in GROUND:
+    for k, p in enumerate(polys(geom)):
+        add(layer, mp.drape(p, T, off, grid=grid), col, f'{layer.split("::")[-1]} {k + 1}', 'draped on NYC spot-elevation terrain')
+
+
+# paving joints
+def grid_lines(geom, spacing):
+    x0, y0, x1, y1 = geom.bounds
+    lines = [LineString([(x, y0 - 1), (x, y1 + 1)]) for x in np.arange(math.floor(x0 / spacing) * spacing, x1 + spacing, spacing)]
+    lines += [LineString([(x0 - 1, y), (x1 + 1, y)]) for y in np.arange(math.floor(y0 / spacing) * spacing, y1 + spacing, spacing)]
+    return MultiLineString(lines).intersection(geom)
+
+
+def add_joints(lines, offset, color):
+    pieces = [g for g in getattr(lines, 'geoms', [lines]) if isinstance(g, LineString) and g.length > 0.05]
+    add('10_Ground::Paving joints', mp.merge([mp.drape_strip(g, T, offset + 0.004, 0.012) for g in pieces]), color, 'joints', 'paver / saw-cut joints', smooth=True)
+
+
+add_joints(grid_lines(sidewalks.intersection(pavers_zone), 0.61), 0.0, (150, 148, 142))
+add_joints(grid_lines(sidewalks.difference(pavers_zone), 1.524), 0.0, (150, 148, 142))
+add_joints(grid_lines(forecourt, 0.61), 0.0, (160, 152, 140))
+add_joints(grid_lines(unary_union([table_plaza, bistro_plaza]).intersection(paving), 1.5), 0.0, (140, 142, 140))
+ring_ang = np.linspace(0, 2 * math.pi, int(2 * math.pi * (lawn_e['a'] + 1.2) / 2.5), endpoint=False)
+add_joints(MultiLineString([LineString([lawn_c, (lawn_c[0] + 30 * math.cos(t), lawn_c[1] + 30 * math.sin(t))]) for t in ring_ang]).intersection(
+    paving.intersection(egg.union(south_fan))), 0.0, (140, 142, 140))
+
+# courthouse stair (approximate: 10 risers of 16.5 cm on 33 cm treads, 9 m wide on the axis)
+z_stair = Tp(axis_u, FACADE_V + 1.6)
+add('40_Buildings::Courthouse stair (approx)', mp.prism(stair_cut, z_stair - 0.4, z_stair), (214, 208, 196), 'stair base', 'approx from photos')
 for k in range(1, N_STEPS + 1):
-    prism('40_Buildings::Courthouse stair (approx)', box(axis_u - STAIR_W / 2, FACADE_V, axis_u + STAIR_W / 2, FACADE_V + (N_STEPS - k + 1) * TREAD),
-          (k - 1) * RISE, k * RISE, name=f'step {k}', src='approx from photos')
+    add('40_Buildings::Courthouse stair (approx)', mp.prism(box(axis_u - STAIR_W / 2, FACADE_V, axis_u + STAIR_W / 2, FACADE_V + (N_STEPS - k + 1) * TREAD),
+        z_stair + (k - 1) * RISE, z_stair + k * RISE), (220, 214, 204), f'step {k}', 'approx from photos')
+
 
 # ------------------------------------------------------------------ furniture
-FRAME, WOOD, CONCRETE, BLACK, GLASS = (32, 32, 32), (196, 154, 108), (205, 202, 195), (25, 25, 25), (170, 200, 215)
-lawn_c = (lawn_e['cx'], lawn_e['cy'])
-
-
-def bench(o, layer):
-    L = min(max(o['length_m'], 2.3), 2.5)
-    h = math.radians(o['heading_deg']); a = (math.cos(h), math.sin(h)); n = (-a[1], a[0])
-    c = (o['x'], o['y'])
-    if (lawn_c[0] - c[0]) * n[0] + (lawn_c[1] - c[1]) * n[1] < 0:   # front faces the lawn
-        n = (-n[0], -n[1])
-    src = 'mirrored' if o.get('mirrored') else 'scan'
-    for s0, s1 in [(-L / 2, -L / 2 + 0.05), (L / 2 - 0.05, L / 2)]:
-        for d0, d1, z0, z1 in [(0.22, 0.29, 0, 0.43), (-0.30, -0.23, 0, 0.86), (-0.25, 0.30, 0.60, 0.64), (-0.25, 0.29, 0.38, 0.42)]:
-            prism(layer, frame_box(c, a, n, s0, s1, d0, d1), z0, z1, FRAME, 'bench frame', src)
-    for k in range(5):
-        d1 = 0.29 - k * 0.095
-        prism(layer, frame_box(c, a, n, -L / 2 + 0.05, L / 2 - 0.05, d1 - 0.075, d1), 0.42, 0.45, WOOD, 'seat slat', src)
-    for z0, z1 in [(0.52, 0.60), (0.63, 0.71), (0.74, 0.82)]:
-        prism(layer, frame_box(c, a, n, -L / 2 + 0.05, L / 2 - 0.05, -0.27, -0.24), z0, z1, WOOD, 'back slat', src)
-
-
-def game_table(o):
-    h = math.radians(o['heading_deg']); a = (math.cos(h), math.sin(h)); n = (-a[1], a[0]); c = (o['x'], o['y'])
-    lay = '20_Furniture::Game tables'
-    prism(lay, frame_box(c, a, n, -0.15, 0.15, -0.15, 0.15), 0, 0.68, CONCRETE, 'pedestal', 'scan')
-    prism(lay, frame_box(c, a, n, -0.43, 0.43, -0.43, 0.43), 0.68, 0.76, CONCRETE, 'table top', 'scan')
-    prism(lay, frame_box(c, a, n, -0.24, 0.24, -0.24, 0.24), 0.76, 0.765, (40, 110, 70), 'checkerboard', 'scan')
-    for side in (-1, 1):   # benches on both sides along the long axis, backs on the outside
-        s_in, s_out = side * 0.62, side * 1.02
-        lo, hi = min(s_in, s_out), max(s_in, s_out)
-        prism(lay, frame_box(c, a, n, lo, hi, -0.6, 0.6), 0.42, 0.46, WOOD, 'bench seat', 'scan')
-        bk = (side * 0.98, side * 1.02)
-        prism(lay, frame_box(c, a, n, min(bk), max(bk), -0.6, 0.6), 0.46, 0.85, WOOD, 'bench back', 'scan')
-        for d in (-0.5, 0.5):
-            prism(lay, frame_box(c, a, n, lo + 0.05, hi - 0.05, d - 0.03, d + 0.03), 0, 0.42, FRAME, 'bench leg', 'scan')
+def at(x, y, off=0.0):
+    return (x, y, Tp(x, y) + off)
 
 
 for o in feat['objects']:
     if o['kind'] == 'bench' and o['x'] < 44:
-        bench(o, '20_Furniture::Benches (mirrored)' if o.get('mirrored') else '20_Furniture::Benches (scanned)')
+        h = math.radians(o['heading_deg']); a = (math.cos(h), math.sin(h)); n = (-a[1], a[0])
+        if (lawn_c[0] - o['x']) * n[0] + (lawn_c[1] - o['y']) * n[1] < 0:
+            n = (-n[0], -n[1])
+        lay = '20_Furniture::Benches (mirrored)' if o.get('mirrored') else '20_Furniture::Benches (scanned)'
+        fr, sl = mp.worlds_fair_bench(at(o['x'], o['y']), a, n, L=min(max(o['length_m'], 2.3), 2.5))
+        src = 'mirrored across the symmetry axis' if o.get('mirrored') else 'scan position'
+        add(lay, fr, mp.FRAME_IRON, "World's Fair bench frame", src); add(lay, sl, mp.SLAT, "World's Fair bench slats", src)
     elif o['kind'] == 'game table + seats':
-        game_table(o)
+        h = math.radians(o['heading_deg']); a = (math.cos(h), math.sin(h)); n = (-a[1], a[0])
+        con, dk, lt, bf, bs = mp.game_table(at(o['x'], o['y']), a, n)
+        lay = '20_Furniture::Game tables'
+        add(lay, con, mp.CONCRETE, 'table', 'scan position'); add(lay, dk, (36, 104, 66), 'board dark squares'); add(lay, lt, (236, 232, 220), 'board light squares')
+        add(lay, bf, mp.FRAME_IRON, 'bench frames'); add(lay, bs, (150, 112, 82), 'bench slats')
 
-# chain-and-bollard fence on the lawn edge: bollards from the scan where found, evenly filled elsewhere
 edge = LineString(ellipse(lawn_e, grow=0.35, n=720) + [ellipse(lawn_e, grow=0.35, n=720)[0]])
 found = [o for o in feat['objects'] if o['kind'].startswith('small object') and edge.distance(Point(o['x'], o['y'])) < 0.35]
 pos = sorted(edge.project(Point(o['x'], o['y'])) for o in found)
@@ -182,270 +234,232 @@ gaps = np.diff(pos) if len(pos) > 2 else np.array([2.4])
 spacing = float(np.median(gaps[(gaps > 0.8) & (gaps < 4)])) if ((gaps > 0.8) & (gaps < 4)).any() else 2.4
 spray_side = spray.buffer(1.0)
 n_b = int(round(edge.length / spacing))
-bollards = []
-for k in range(n_b):
-    p = edge.interpolate(k * edge.length / n_b)
-    if not spray_side.contains(p):
-        bollards.append((p.x, p.y))
-for x, y in bollards:
-    cylinder('20_Furniture::Lawn fence bollards', x, y, 0.05, 0.03, 0.78, BLACK, 'bollard', 'scan spacing')
+bollards = [(p.x, p.y) for p in (edge.interpolate(k * edge.length / n_b) for k in range(n_b)) if not spray_side.contains(p)]
+add('20_Furniture::Lawn fence', mp.merge([mp.bollard(at(x, y, 0.03)) for x, y in bollards]), mp.BLACK, 'bollards', 'scan spacing', smooth=True)
+chain = []
 for (x0, y0), (x1, y1) in zip(bollards, bollards[1:] + bollards[:1]):
     if math.hypot(x1 - x0, y1 - y0) < spacing * 1.6:
-        curves.append(dict(layer='20_Furniture::Lawn fence chain', pts=[(x0, y0, 0.62), ((x0 + x1) / 2, (y0 + y1) / 2, 0.54), (x1, y1, 0.62)]))
+        p = mp.catenary(at(x0, y0, 0.03 + 0.66), at(x1, y1, 0.03 + 0.66), 0.10)
+        chain.append(mp.tube(p, 0.007, 6))
+        curves.append(dict(layer='20_Furniture::Lawn fence', pts=[tuple(q) for q in p]))
+add('20_Furniture::Lawn fence', mp.merge(chain), mp.BLACK, 'chain', 'catenary between bollards', smooth=True)
 
-# perimeter hoop fence where planting meets a sidewalk
-fence_lines = planting.boundary.intersection(sidewalks.union(forecourt).buffer(0.15))
+fence_lines = planting.boundary.intersection(unary_union([sidewalks, forecourt, edge_band, curb_band]).buffer(0.5))
+posts, rails = [], []
 for g in getattr(fence_lines, 'geoms', [fence_lines]):
     if not isinstance(g, LineString) or g.length < 1.0:
         continue
-    for t in np.arange(0, g.length + 0.01, 1.5):
-        p = g.interpolate(min(t, g.length))
-        prism('20_Furniture::Perimeter fence', box(p.x - 0.02, p.y - 0.02, p.x + 0.02, p.y + 0.02), 0.05, 0.95, BLACK, 'fence post', 'photos')
-    for z0 in (0.88, 0.35):
-        prism('20_Furniture::Perimeter fence', g.buffer(0.015, cap_style='flat'), z0, z0 + 0.03, BLACK, 'fence rail', 'photos')
+    n_p = max(1, int(round(g.length / 1.8)))
+    for k in range(n_p + 1):
+        p = g.interpolate(k * g.length / n_p)
+        posts.append(mp.spear_post(at(p.x, p.y, 0.05)))
+    samples = [g.interpolate(t) for t in np.linspace(0, g.length, max(2, int(g.length / 0.8) + 1))]
+    for hgt in (0.86, 0.40):
+        rails.append(mp.tube([at(q.x, q.y, 0.05 + hgt) for q in samples], 0.014, 8))
+add('20_Furniture::Perimeter fence', mp.merge(posts), mp.BLACK, 'fence posts', 'style from the scan keyframes')
+add('20_Furniture::Perimeter fence', mp.merge(rails), mp.BLACK, 'fence rails', 'style from the scan keyframes', smooth=True)
 
 lamp = next((o for o in feat['objects'] if o['kind'].startswith('pole') and 0 < o['x'] < 48 and 0 < o['y'] < 41), None)
 if lamp:
-    for rr, z0, z1, nm in [(0.15, 0, 0.6, 'lamp base'), (0.065, 0.6, 3.6, 'lamp shaft'), (0.22, 3.6, 4.2, 'lantern'), (0.26, 4.2, 4.3, 'lantern cap')]:
-        cylinder('20_Furniture::Lamps (approx height)', lamp['x'], lamp['y'], rr, z0, z1, BLACK, nm, 'scan position')
+    post, globe, padp = mp.parks_lamp(at(lamp['x'], lamp['y'], 0.05))
+    add('20_Furniture::Lamps (approx height)', post, mp.BLACK, 'lamppost', 'scan position, height approx', smooth=True)
+    add('20_Furniture::Lamps (approx height)', globe, (242, 240, 228), 'globe', smooth=True)
+    add('20_Furniture::Lamps (approx height)', padp, mp.CONCRETE, 'lamp pad')
 sign = min((o for o in feat['objects'] if o['kind'] == 'tall object'), key=lambda o: math.hypot(o['x'] - 31.9, o['y'] - 39.4))
-c, a = (sign['x'], sign['y']), (1.0, 0.0); n = (0.0, 1.0)
-for s in (-0.6, 0.6):
-    prism('20_Furniture::Signs', frame_box(c, a, n, s - 0.04, s + 0.04, -0.04, 0.04), 0, 1.65, (30, 70, 45), 'sign post', 'scan')
-prism('20_Furniture::Signs', frame_box(c, a, n, -0.65, 0.65, -0.02, 0.02), 0.45, 1.65, (30, 70, 45), 'park sign', 'scan')
-# bus shelter on Jackson Ave near Thomson (partly scanned; size from NYC standard shelters)
-c, a, n = (48.3, 42.3), (1.0, 0.0), (0.0, 1.0)
-prism('20_Furniture::Bus shelter (approx)', frame_box(c, a, n, -2.1, 2.1, -0.8, 0.8), 2.45, 2.55, FRAME, 'roof', 'approx')
-prism('20_Furniture::Bus shelter (approx)', frame_box(c, a, n, -2.1, 2.1, 0.75, 0.78), 0.1, 2.45, GLASS, 'back glass', 'approx')
-for s in (-2.1, 2.07):
-    prism('20_Furniture::Bus shelter (approx)', frame_box(c, a, n, s, s + 0.03, -0.1, 0.78), 0.1, 2.45, GLASS, 'end glass', 'approx')
-    for d in (-0.8, 0.72):
-        prism('20_Furniture::Bus shelter (approx)', frame_box(c, a, n, s, s + 0.06, d, d + 0.06), 0, 2.45, FRAME, 'post', 'approx')
+c = at(sign['x'], sign['y'], 0.05)
+add('20_Furniture::Signs', mp.merge([mp.frame_box(c, (1, 0), (0, 1), s - 0.04, s + 0.04, -0.04, 0.04, -0.05, 1.70) for s in (-0.6, 0.6)]),
+    (120, 92, 60), 'sign posts', 'scan')
+add('20_Furniture::Signs', mp.frame_box(c, (1, 0), (0, 1), -0.66, 0.66, -0.02, 0.02, 0.45, 1.65), (28, 72, 48), 'Parks sign panel', 'scan')
+cshel = at(48.3, 42.3)
+shelter = [mp.frame_box(cshel, (1, 0), (0, 1), -2.1, 2.1, -0.82, 0.82, 2.45, 2.58)]
+shelter += [mp.frame_box(cshel, (1, 0), (0, 1), s, s + 0.07, d, d + 0.07, 0, 2.45) for s in (-2.1, 2.03) for d in (-0.82, 0.75)]
+add('20_Furniture::Bus shelter (approx)', mp.merge(shelter), (60, 62, 64), 'shelter frame', 'NYC standard size, approx')
+glass = [mp.frame_box(cshel, (1, 0), (0, 1), -2.03, 2.03, 0.76, 0.785, 0.15, 2.42)] + \
+        [mp.frame_box(cshel, (1, 0), (0, 1), s, s + 0.025, -0.75, 0.75, 0.15, 2.42) for s in (-2.08, 2.055)]
+add('20_Furniture::Bus shelter (approx)', mp.merge(glass), (180, 205, 220, 110), 'shelter glass')
+add('20_Furniture::Spray pad', mp.revolve([(0.25, 0.0), (0.25, 0.012), (0.0, 0.012)], at(axis_u, pcy, -0.02), 24), (60, 62, 66), 'drain', 'scan', smooth=True)
 
 # ------------------------------------------------------------------ trees
-def icosphere(sub=2):
-    t = (1 + 5 ** .5) / 2
-    V = [(-1, t, 0), (1, t, 0), (-1, -t, 0), (1, -t, 0), (0, -1, t), (0, 1, t), (0, -1, -t), (0, 1, -t), (t, 0, -1), (t, 0, 1), (-t, 0, -1), (-t, 0, 1)]
-    F = [(0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
-         (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1)]
-    V = [np.array(v) / np.linalg.norm(v) for v in V]
-    for _ in range(sub):
-        cache, F2 = {}, []
-        def mid(i, j):
-            k = (min(i, j), max(i, j))
-            if k not in cache:
-                m = (V[i] + V[j]) / 2; V.append(m / np.linalg.norm(m)); cache[k] = len(V) - 1
-            return cache[k]
-        for i, j, k in F:
-            a_, b_, c_ = mid(i, j), mid(j, k), mid(k, i)
-            F2 += [(i, a_, c_), (j, b_, a_), (k, c_, b_), (a_, b_, c_)]
-        F = F2
-    return np.array(V), np.array(F)
-
-
-SPH_V, SPH_F = icosphere(2)
-REMOVED = {(25.245, 8.117), (27.246, 31.901), (35.768, 31.372)}
-for t in csv.DictReader(open(D('model', 'trees.csv'))):
+for i, t in enumerate(trees):
     x, y = float(t['x_m']), float(t['y_m'])
-    if t['status'] != 'Full' or (round(x, 3), round(y, 3)) in REMOVED or not EXTENT.contains(Point(x, y)):
-        continue
-    dbh = float(t['dbh_in'] or 0); H = float(t['height_m_est']); crown = float(t['crown_d_m_est'])
-    base = min(max(0.35 * H, 2.2), 4.0)
-    cylinder('30_Trees::Trunks', x, y, max(0.06, dbh * 0.0254 / 2), 0.0, base + (H - base) * 0.35, (92, 70, 50), t['species'], 'NYC Forestry')
-    rz = (H - base) / 2
-    V = SPH_V * np.array([crown / 2, crown / 2, rz]) + np.array([x, y, base + rz])
-    meshes.append(dict(layer='30_Trees::Crowns (park)' if t['in_park'] == 'True' else '30_Trees::Crowns (street)', V=V, F=SPH_F,
-                       name=f"{t['species']} DBH {dbh:.0f} in", src='NYC Forestry; crown estimated from DBH'))
+    off = 0.05 if planting.contains(Point(x, y)) else -0.04 if pits.contains(Point(x, y)) else 0.0
+    bark, leaves, col = mp.tree(x, y, Tp(x, y) + off, t['species'], float(t['dbh_in'] or 4), float(t['height_m_est']), float(t['crown_d_m_est']), seed=1000 + i)
+    lay = '30_Trees::Park trees' if t['in_park'] == 'True' else '30_Trees::Street trees'
+    nm = f"{t['species']} DBH {float(t['dbh_in'] or 0):.0f} in"
+    add(lay, bark, (96, 76, 58), nm + ' trunk', 'NYC Forestry; form from species, size from DBH', smooth=True)
+    add(lay, leaves, col, nm + ' crown', 'NYC Forestry; crown estimated from DBH', smooth=True)
 
 # ------------------------------------------------------------------ buildings
-for p, hgt, ground, bin_ in bldg_polys:
-    if hgt <= 0:
+gdb = D('data', 'nyc3d', 'DA_WISE_Multipatch', 'DA10_3D_Buildings_Multipatch.gdb')
+to2263 = pyproj.Transformer.from_crs('EPSG:4326', 'EPSG:2263', always_xy=True)
+to4326 = pyproj.Transformer.from_crs('EPSG:2263', 'EPSG:4326', always_xy=True)
+bx = [to2263.transform(-73.9500, 40.7420), to2263.transform(-73.9370, 40.7510)]
+meta, fid, g3, fld = pyogrio.raw.read(gdb, bbox=(bx[0][0], bx[0][1], bx[1][0], bx[1][1]))
+model3d = {}
+for b_, g in zip(fld[0], g3):
+    model3d.setdefault(str(b_), []).append(g)
+
+
+def lod2_faces(blobs):
+    """Multipatch faces -> list of ((V, F), is_roof, z_min) in park coordinates."""
+    out = []
+    for blob in blobs:
+        geom = wkb.loads(blob)
+        for face in getattr(geom, 'geoms', [geom]):
+            rings = [np.array(face.exterior.coords)] + [np.array(h.coords) for h in face.interiors]
+            allp = np.vstack(rings)
+            lon, lat = to4326.transform(allp[:, 0], allp[:, 1])
+            P = np.column_stack([np.array([uv(a_, b_) for a_, b_ in zip(lon, lat)]), allp[:, 2] * 0.3048 - GRADE])
+            ring0 = P[:len(rings[0])]; c0 = ring0.mean(0)
+            nrm = sum(np.cross(ring0[i] - c0, ring0[i + 1] - c0) for i in range(len(ring0) - 1))
+            if np.linalg.norm(nrm) < 1e-9:
+                continue
+            nrm = nrm / np.linalg.norm(nrm)
+            ax = np.cross(nrm, [0, 0, 1.0]) if abs(nrm[2]) < 0.9 else np.cross(nrm, [1.0, 0, 0]); ax /= np.linalg.norm(ax); ay = np.cross(nrm, ax)
+            q = np.column_stack([(P - c0) @ ax, (P - c0) @ ay])
+            k, prs = 0, []
+            for rr in rings:
+                prs.append([tuple(v) for v in q[k:k + len(rr)]]); k += len(rr)
+            p2 = Polygon(prs[0], prs[1:])
+            if not p2.is_valid:
+                p2 = p2.buffer(0)
+            for piece in polys(p2):
+                pts2, tri, _ = mp.triangulate(piece)
+                if not len(tri):
+                    continue
+                W = c0 + pts2[:, :1] * ax + pts2[:, 1:2] * ay
+                if np.dot(np.cross(W[tri[:, 1]] - W[tri[:, 0]], W[tri[:, 2]] - W[tri[:, 0]]).sum(0), nrm) < 0:
+                    tri = tri[:, [0, 2, 1]]
+                out.append([W, tri, nrm])
+    if not out:
+        return []
+    # multipatch rings are not consistently wound: turn every face to point away from the building's centre
+    centre = np.vstack([W for W, _, _ in out]).mean(0)
+    res = []
+    for W, tri, nrm in out:
+        if np.dot(nrm, W.mean(0) - centre) < 0:
+            nrm = -nrm; tri = tri[:, [0, 2, 1]]
+        res.append(((W, tri), nrm[2] > 0.5, W[:, 2].min(), W[:, 2].max(), nrm[2]))
+    return res
+
+
+n_lod2 = n_lod1 = 0
+for b in footprints:
+    if b['h'] <= 0:
         continue
-    lay = '40_Buildings::Courthouse' if bin_ == '4000698' else '40_Buildings::Context'
-    z0 = ground - GRADE
-    prism(lay, p, min(z0, 0.0), z0 + hgt, name=f'BIN {bin_}', src=f'NYC building footprints, roof {hgt:.1f} m')
+    court = b['bin'] == '4000698'
+    name = f"BIN {b['bin']}"
+    if b['year'] < 2015 and b['bin'] in model3d:
+        faces = lod2_faces(model3d[b['bin']])
+        if not faces:
+            continue
+        is_copper = lambda zmax, nz: court and zmax > 24.0 and abs(nz) > 0.15   # mansard and dome above the main roof (21.2 m)
+        wall = [vf for vf, roof, z0, z1, nz in faces if not roof and not is_copper(z1, nz)]
+        roof = [vf for vf, roof, z0, z1, nz in faces if roof and not is_copper(z1, nz)]
+        copper = [vf for vf, roof, z0, z1, nz in faces if is_copper(z1, nz)]
+        layer = '40_Buildings::Courthouse (LOD2)' if court else '40_Buildings::Context (LOD2, 2014 survey)'
+        add(layer, mp.merge(wall), (196, 118, 94) if court else (214, 214, 218), name + ' walls', 'NYC 3D Building Model (2014)')
+        add(layer, mp.merge(roof), (168, 112, 96) if court else (190, 190, 196), name + ' roofs', 'NYC 3D Building Model (2014)')
+        add(layer, mp.merge(copper), (118, 168, 150), name + ' copper roof and dome', 'NYC 3D Building Model (2014)')
+        n_lod2 += 1
+    else:
+        z0 = b['ground'] - GRADE
+        zb = min(float(T(*np.array(b['poly'].exterior.coords).T).min()), z0) - 0.3
+        for p in polys(b['poly']):
+            add('40_Buildings::Context (LOD1, built 2015 or later)', mp.prism(orient(p, 1.0), zb, z0 + b['h']), (222, 222, 226), name,
+                f'NYC footprint extruded to roof {b["h"]:.1f} m (year {b["year"]})')
+        n_lod1 += 1
+print(f'buildings: {n_lod2} LOD2 from the 2014 model, {n_lod1} extruded (built 2015+ or missing from it)')
+
 
 # ------------------------------------------------------------------ reference curves + labels
-def ring_curve(layer, pts, z=0.0):
+def ring_curve(layer, pts, z):
     curves.append(dict(layer=layer, pts=[(x, y, z) for x, y in pts] + [(pts[0][0], pts[0][1], z)]))
 
 
-ring_curve('00_Reference::Property line', list(park.exterior.coords)[:-1], 0.12)
-for g, nm in [(lawn, 'lawn'), (egg, 'ring path'), (spray, 'spray pad'), (paving, 'paving'), (planting, 'planting')]:
-    for part in getattr(g, 'geoms', [g]):
-        ring_curve('00_Reference::Zone outlines', list(part.exterior.coords)[:-1], 0.13)
+ring_curve('00_Reference::Property line', [(x, y) for x, y in list(park.exterior.coords)[:-1]], 0.3)
+for g in [lawn, egg, spray, paving, planting]:
+    for part in polys(g):
+        ring_curve('00_Reference::Zone outlines (flat, z 0.3)', list(part.exterior.coords)[:-1], 0.3)
 t = math.radians(90 + sym['tilt_deg'])
-curves.append(dict(layer='00_Reference::Symmetry axis', pts=[(axis_u - 22 * math.cos(t), sym['axis_v'] - 22 * math.sin(t), 0.14),
-                                                           (axis_u + 18 * math.cos(t), sym['axis_v'] + 18 * math.sin(t), 0.14)]))
-nx, ny = NORTH
-base = (-35.0, 70.0)
-curves.append(dict(layer='00_Reference::North arrow', pts=[(base[0], base[1], 0.2), (base[0] + 8 * nx, base[1] + 8 * ny, 0.2),
-                                                         (base[0] + 8 * nx - 1.5 * (nx + ny * .5), base[1] + 8 * ny - 1.5 * (ny - nx * .5), 0.2)]))
-dots.append(dict(layer='00_Reference::North arrow', text='N (true)', x=base[0] + 9 * nx, y=base[1] + 9 * ny, z=0.2))
-for x, y, m, ft in site['elev']:
+curves.append(dict(layer='00_Reference::Symmetry axis', pts=[(axis_u - 22 * math.cos(t), sym['axis_v'] - 22 * math.sin(t), 0.35),
+                                                           (axis_u + 18 * math.cos(t), sym['axis_v'] + 18 * math.sin(t), 0.35)]))
+nx, ny = NORTH; base = (-35.0, 70.0)
+curves.append(dict(layer='00_Reference::North arrow', pts=[(base[0], base[1], 1), (base[0] + 8 * nx, base[1] + 8 * ny, 1),
+                                                         (base[0] + 8 * nx - 1.5 * (nx + ny * .5), base[1] + 8 * ny - 1.5 * (ny - nx * .5), 1)]))
+dots.append(dict(layer='00_Reference::North arrow', text='N (true)', x=base[0] + 9 * nx, y=base[1] + 9 * ny, z=1))
+for x, y, z in zip(gx, gy, gz):
     if EXTENT.contains(Point(x, y)):
-        dots.append(dict(layer='00_Reference::Spot elevations (NAVD88)', text=f'{m:.2f}', x=x, y=y, z=m - GRADE))
-for text, x, y in [('Central lawn', lawn_c[0], lawn_c[1]), ('Spray pad', axis_u, 8.2), ('Game tables', 17.2, 28.6), ('Bistro area', 48.0, 21.0),
+        dots.append(dict(layer='00_Reference::Spot elevations (NAVD88)', text=f'{z + GRADE:.2f}', x=x, y=y, z=z))
+for text, x, y in [('Central lawn', *lawn_c), ('Spray pad', axis_u, 8.2), ('Game tables', 17.2, 28.6), ('Bistro area', 48.0, 21.0),
                    ('Jackson Ave', 20, 50), ('Thomson Ave', 63, 25), ('Court Sq W', -8, 20), ('Long Island City Courthouse', 31, -30)]:
-    dots.append(dict(layer='90_Annotation', text=text, x=x, y=y, z=1.0))
+    dots.append(dict(layer='90_Annotation', text=text, x=x, y=y, z=Tp(x, y) + 1.5))
 
-LAYERS = {
-    '00_Reference': (90, 90, 90), '00_Reference::Property line': (0, 160, 0), '00_Reference::Zone outlines': (120, 120, 120),
-    '00_Reference::Symmetry axis': (200, 0, 160), '00_Reference::North arrow': (0, 0, 0), '00_Reference::Spot elevations (NAVD88)': (140, 80, 20),
-    '10_Ground': (150, 150, 150), '10_Ground::Roadbed': (72, 75, 80), '10_Ground::Median': (110, 140, 105), '10_Ground::Sidewalk': (200, 198, 190),
-    '10_Ground::Forecourt': (212, 206, 196), '10_Ground::Other ground': (165, 165, 160), '10_Ground::Park paving': (188, 188, 183),
-    '10_Ground::Planting beds': (92, 98, 64), '10_Ground::Lawn': (98, 152, 82), '10_Ground::Lawn curb': (236, 236, 230), '10_Ground::Spray pad': (150, 176, 196),
-    '20_Furniture': (60, 60, 60), '20_Furniture::Benches (scanned)': WOOD, '20_Furniture::Benches (mirrored)': (220, 180, 120),
-    '20_Furniture::Game tables': CONCRETE, '20_Furniture::Lawn fence bollards': BLACK, '20_Furniture::Lawn fence chain': (60, 60, 60),
-    '20_Furniture::Perimeter fence': BLACK, '20_Furniture::Lamps (approx height)': BLACK, '20_Furniture::Signs': (30, 70, 45),
-    '20_Furniture::Bus shelter (approx)': GLASS,
-    '30_Trees': (70, 120, 60), '30_Trees::Trunks': (92, 70, 50), '30_Trees::Crowns (park)': (88, 140, 70), '30_Trees::Crowns (street)': (110, 150, 90),
-    '40_Buildings': (200, 200, 205), '40_Buildings::Courthouse': (196, 120, 96), '40_Buildings::Context': (205, 205, 210),
-    '40_Buildings::Courthouse stair (approx)': (220, 214, 204),
-    '90_Annotation': (0, 0, 0),
-}
+LAYERS = {'00_Reference': (90, 90, 90), '10_Ground': (150, 150, 150), '20_Furniture': (60, 60, 60), '30_Trees': (70, 120, 60),
+          '40_Buildings': (200, 200, 205), '90_Annotation': (0, 0, 0)}
+for o in objs:
+    LAYERS.setdefault(o['layer'], o['color'][:3])
+for c_ in curves + dots:
+    LAYERS.setdefault(c_['layer'], (60, 60, 60))
 
-# ------------------------------------------------------------------ write .3dm
+
+# ------------------------------------------------------------------ write .3dm (meshes, curves, dots)
 def write_3dm(path):
     f = r.File3dm()
     f.Settings.ModelUnitSystem = r.UnitSystem.Meters
     f.Settings.ModelAbsoluteTolerance = 0.001
     ea = f.Settings.EarthAnchorPoint
     ea.EarthBasepointLatitude, ea.EarthBasepointLongitude, ea.EarthBasepointElevation = ORIGIN_LL[1], ORIGIN_LL[0], GRADE
-    ea.ModelBasePoint = r.Point3d(0, 0, 0)
-    ea.ModelNorth = r.Vector3d(NORTH[0], NORTH[1], 0)
-    ea.ModelEast = r.Vector3d(EAST[0], EAST[1], 0)
+    ea.ModelBasePoint = r.Point3d(0, 0, 0); ea.ModelNorth = r.Vector3d(NORTH[0], NORTH[1], 0); ea.ModelEast = r.Vector3d(EAST[0], EAST[1], 0)
     ea.Name = 'Court Square Park, park frame origin (Court Sq W x courthouse forecourt corner)'
     f.Settings.EarthAnchorPoint = ea
     index = {}
-    global bad
-    bad = []
-    for full, col in LAYERS.items():
-        lay = r.Layer(); lay.Name = full.split('::')[-1]; lay.Color = (*col, 255)
+    for full in sorted(LAYERS, key=lambda s: (s.count('::'), s)):
+        col = LAYERS[full]
+        lay = r.Layer(); lay.Name = full.split('::')[-1]; lay.Color = (*col[:3], 255)
         if '::' in full:
             lay.ParentLayerId = f.Layers.FindIndex(index[full.rsplit('::', 1)[0]]).Id
-        mat = r.Material(); mat.Name = full.replace('::', ' - '); mat.DiffuseColor = (*col, 255)
-        lay.RenderMaterialIndex = f.Materials.Add(mat)
         index[full] = f.Layers.Add(lay)
 
     def attrs(layer, color=None, name='', src=''):
         at = r.ObjectAttributes(); at.LayerIndex = index[layer]; at.Name = name
         if color:
-            at.ObjectColor = (*color, 255); at.ColorSource = r.ObjectColorSource.ColorFromObject
+            at.ObjectColor = (*color[:3], 255); at.ColorSource = r.ObjectColorSource.ColorFromObject
         if src:
             at.SetUserString('source', src)
         return at
 
-    for p in prisms:
-        ext = list(p['poly'].exterior.coords)[:-1]
-        if len(ext) < 3:
-            continue
+    for o in objs:
+        V, F = o['V'], o['F']
+        if not o['smooth']:          # unweld so hard edges render crisp
+            V = V[F].reshape(-1, 3); F = np.arange(len(V)).reshape(-1, 3)
+        m = r.Mesh()
+        for x, y, z in V.tolist():
+            m.Vertices.Add(x, y, z)
+        for a_, b_, c_ in F.tolist():
+            m.Faces.AddFace(a_, b_, c_)
+        m.Normals.ComputeNormals()
+        f.Objects.AddMesh(m, attrs(o['layer'], o['color'], o['name'], o['src']))
+    for c_ in curves:
         pl = r.Point3dList()
-        for x, y in ext + [ext[0]]:
-            pl.Add(x, y, p['z0'])
-        e = r.Extrusion.Create(r.PolylineCurve(pl), p['z1'] - p['z0'], True)
-        if e is None:
-            bad.append(p['layer']); continue
-        bb = e.GetBoundingBox()
-        if abs(bb.Min.Z - p['z0']) > 1e-4 or abs(bb.Max.Z - p['z1']) > 1e-4:
-            bad.append(p['layer'] + ' (z range)'); continue
-        ox, oy = ext[0]
-        for hole in p['poly'].interiors:
-            hp = r.Point3dList()
-            pts = list(hole.coords)
-            for x, y in pts:
-                hp.Add(x - ox, y - oy, 0)
-            e.AddInnerProfile(r.PolylineCurve(hp))
-        f.Objects.AddExtrusion(e, attrs(p['layer'], p['color'], p['name'], p['src']))
-    for c in cylinders:
-        circ = r.Circle(r.Point3d(c['x'], c['y'], c['z0']), c['r'])   # world-XY circle at the base
-        e = r.Extrusion.CreateCylinderExtrusion(r.Cylinder(circ, c['z1'] - c['z0']), True, True)
-        f.Objects.AddExtrusion(e, attrs(c['layer'], c['color'], c['name'], c['src']))
-    for m in meshes:
-        mesh = r.Mesh()
-        for x, y, z in m['V']:
-            mesh.Vertices.Add(float(x), float(y), float(z))
-        for a_, b_, c_ in m['F']:
-            mesh.Faces.AddFace(int(a_), int(b_), int(c_))
-        mesh.Normals.ComputeNormals() if hasattr(mesh.Normals, 'ComputeNormals') else None
-        f.Objects.AddMesh(mesh, attrs(m['layer'], None, m['name'], m['src']))
-    for c in curves:
-        pl = r.Point3dList()
-        for x, y, z in c['pts']:
-            pl.Add(x, y, z)
-        f.Objects.AddCurve(r.PolylineCurve(pl), attrs(c['layer']))
+        for x, y, z in c_['pts']:
+            pl.Add(float(x), float(y), float(z))
+        f.Objects.AddCurve(r.PolylineCurve(pl), attrs(c_['layer']))
     for d in dots:
-        f.Objects.AddTextDot(d['text'], r.Point3d(d['x'], d['y'], d['z']), attrs(d['layer']))
+        f.Objects.AddTextDot(d['text'], r.Point3d(float(d['x']), float(d['y']), float(d['z'])), attrs(d['layer']))
     f.Write(path, 8)
-    return f
 
 
-# ------------------------------------------------------------------ write preview GLB (Y-up)
-def tri_prism(poly, z0, z1):
-    rings = [list(poly.exterior.coords)[:-1]] + [list(h.coords)[:-1] for h in poly.interiors]
-    flat = np.array([p for ring in rings for p in ring], dtype=np.float64)
-    ends = np.cumsum([len(ring) for ring in rings]).astype(np.uint32)
-    idx = earcut.triangulate_float64(flat, ends).reshape(-1, 3)
-    tris = []
-    for a_, b_, c_ in idx:
-        pa, pb, pc = flat[a_], flat[b_], flat[c_]
-        cross = (pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0])
-        if cross < 0:
-            pb, pc = pc, pb
-        tris.append([(pa[0], pa[1], z1), (pb[0], pb[1], z1), (pc[0], pc[1], z1)])
-        tris.append([(pa[0], pa[1], z0), (pc[0], pc[1], z0), (pb[0], pb[1], z0)])
-    for ring in rings:
-        for i in range(len(ring)):
-            (x0, y0), (x1, y1) = ring[i], ring[(i + 1) % len(ring)]
-            tris.append([(x0, y0, z0), (x1, y1, z0), (x1, y1, z1)])
-            tris.append([(x0, y0, z0), (x1, y1, z1), (x0, y0, z1)])
-    return tris
-
-
-def write_glb(path):
-    groups = {}
-    def add(key, tris):
-        groups.setdefault(key, []).extend(tris)
-    for p in prisms:
-        add(p['color'] or LAYERS[p['layer']], tri_prism(p['poly'], p['z0'], p['z1']))
-    for c in cylinders:
-        add(c['color'] or LAYERS[c['layer']], tri_prism(Point(c['x'], c['y']).buffer(c['r'], 8), c['z0'], c['z1']))
-    for m in meshes:
-        add(LAYERS[m['layer']], [[tuple(m['V'][i]) for i in face] for face in m['F']])
-    bin_ = bytearray(); views, accs, mats, prims = [], [], [], []
-    for k, (color, tris) in enumerate(groups.items()):
-        T = np.array(tris, dtype=np.float64)                    # (n, 3, 3) in park frame
-        P = np.stack([T[..., 0], T[..., 2], -T[..., 1]], -1).reshape(-1, 3).astype('<f4')
-        e1, e2 = T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]
-        nrm = np.cross(e1, e2); nrm /= np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-12)
-        N = np.repeat(np.stack([nrm[:, 0], nrm[:, 2], -nrm[:, 1]], -1), 3, 0).astype('<f4')
-        for arr, target in [(P, 34962), (N, 34962)]:
-            while len(bin_) % 4: bin_.append(0)
-            views.append(dict(buffer=0, byteOffset=len(bin_), byteLength=arr.nbytes, target=target)); bin_.extend(arr.tobytes())
-        accs.append(dict(bufferView=len(views) - 2, componentType=5126, count=len(P), type='VEC3', min=P.min(0).tolist(), max=P.max(0).tolist()))
-        accs.append(dict(bufferView=len(views) - 1, componentType=5126, count=len(N), type='VEC3'))
-        lin = [((c / 255 + 0.055) / 1.055) ** 2.4 for c in color]
-        mats.append(dict(pbrMetallicRoughness=dict(baseColorFactor=[*lin, 0.55 if color == GLASS else 1.0], metallicFactor=0, roughnessFactor=0.9),
-                         alphaMode='BLEND' if color == GLASS else 'OPAQUE', doubleSided=True))
-        prims.append(dict(attributes=dict(POSITION=len(accs) - 2, NORMAL=len(accs) - 1), material=k))
-    while len(bin_) % 4: bin_.append(0)
-    gltf = dict(asset=dict(version='2.0', generator='court-square-park scripts/build_model.py'), scene=0, scenes=[dict(nodes=[0])],
-                nodes=[dict(name='Court Square Park LOD3', mesh=0)], meshes=[dict(primitives=prims)], materials=mats,
-                accessors=accs, bufferViews=views, buffers=[dict(byteLength=len(bin_))])
-    js = json.dumps(gltf, separators=(',', ':')).encode(); js += b' ' * ((4 - len(js) % 4) % 4)
-    with open(path, 'wb') as fh:
-        fh.write(struct.pack('<III', 0x46546C67, 2, 28 + len(js) + len(bin_)))
-        fh.write(struct.pack('<II', len(js), 0x4E4F534A)); fh.write(js)
-        fh.write(struct.pack('<II', len(bin_), 0x004E4942)); fh.write(bin_)
-
-
-bad = []
-f = write_3dm(D('model', 'court_square_park_LOD3.3dm'))
-print('extrusions that failed:', len(bad), sorted(set(bad))[:10])
-write_glb(D('model', 'court_square_park_LOD3_preview.glb'))
+write_3dm(D('model', 'court_square_park_LOD3.3dm'))
+groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], name=o['layer'].split('::')[-1]) for o in objs]
+tri_all = write_glb(D('model', 'court_square_park_LOD3_preview.glb'), groups, 'court-square-park scripts/build_model.py')
+tri_web = write_glb(D('model', 'court_square_park_LOD3_web.glb'),
+                    [g for g, o in zip(groups, objs) if not o['name'].startswith(WEB_EXCLUDE)],
+                    'court-square-park scripts/build_model.py (website copy without One Court Square)')
 from collections import Counter
-cnt = Counter(p['layer'] for p in prisms) + Counter(c['layer'] for c in cylinders) + Counter(m['layer'] for m in meshes) + Counter(c['layer'] for c in curves)
+cnt = Counter(o['layer'] for o in objs)
 for k in sorted(cnt):
     print(f'{cnt[k]:5d}  {k}')
-print('bollards', len(bollards), 'spacing', round(spacing, 2), '| areas m2: paving', round(paving.area, 1), 'planting', round(planting.area, 1),
-      'lawn', round(lawn.area, 1), 'spray', round(spray.area, 1), 'forecourt', round(forecourt.area, 1))
+print('objects', len(objs), '| triangles preview', tri_all, 'web', tri_web, '| bollards', len(bollards), 'spacing', round(spacing, 2))
+for fn in ('court_square_park_LOD3.3dm', 'court_square_park_LOD3_preview.glb', 'court_square_park_LOD3_web.glb'):
+    print(f'{fn}: {os.path.getsize(D("model", fn)) / 1e6:.1f} MB')
