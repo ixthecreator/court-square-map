@@ -1,0 +1,13 @@
+#!/bin/zsh
+# Download the NYC Open Data layers the pipeline uses into ./data (run from the working folder).
+set -e
+mkdir -p data && cd data
+API=https://data.cityofnewyork.us/resource
+box() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "within_box($1,40.7478,-73.9455,40.7450,-73.9418)"; }
+curl -s -o parks_property_Q267.geojson "$API/enfh-gkve.geojson?gispropnum=Q267"
+curl -s -o buildings.geojson "$API/5zhs-2jue.geojson?\$where=$(box the_geom)&\$limit=500"
+curl -s -o trees_forestry.json "$API/hn5i-inap.json?\$where=$(python3 -c "import urllib.parse;print(urllib.parse.quote('within_box(location,40.7472,-73.9445,40.7455,-73.9425)'))")&\$limit=500"
+for pair in 52n9-sdep:sidewalk 5xvt-8cbk:curbs i36f-5ih7:roadbed 9uxf-ng6q:elevation_points ees7-4ufv:median; do
+  curl -s -o "plan_${pair##*:}.geojson" "$API/${pair%%:*}.geojson?\$where=$(box the_geom)&\$limit=2000"
+done
+ls -la

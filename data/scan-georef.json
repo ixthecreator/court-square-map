@@ -1,0 +1,11 @@
+{
+ "origin": [
+  -73.94360081552986,
+  40.74609155174996
+ ],
+ "x_bearing_deg": 62.4,
+ "m_per_deg_lon": 84456.96437988034,
+ "m_per_deg_lat": 111049.01312010428,
+ "grade_navd88_m": 5.28,
+ "note": "glTF x = park u, y = height above grade, z = -park v. east = u sin(b) - v cos(b); north = u cos(b) + v sin(b)"
+}
