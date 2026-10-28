@@ -13,6 +13,17 @@
   "inferred"
  ],
  "frame": "park frame: x = u (toward Thomson Ave), y = up, z = -v (v toward Jackson Ave), meters; true north is 27.6 deg clockwise from +v",
+ "georef": {
+  "origin": [
+   -73.94360081552986,
+   40.74609155174996
+  ],
+  "x_bearing_deg": 62.4,
+  "m_per_deg_lon": 84456.96437988034,
+  "m_per_deg_lat": 111049.01312010428,
+  "grade_navd88_m": 5.28,
+  "note": "glTF x = park u, y = height above grade, z = -park v. east = u sin(b) - v cos(b); north = u cos(b) + v sin(b)"
+ },
  "parts": [
   {
    "path": "court-square-park-2026-10-28.glb.part000",

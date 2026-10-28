@@ -5,7 +5,7 @@ original GLB to model-viewer, so nothing is re-encoded or compressed.
 
 Usage:
   python3 tools/split_scan.py path/to/scan.glb --name court-square-park-2026-10-28.glb \
-      --title "Court Square Park field scan" --captured 2026-10-28 [--part-mb 40]
+      --title "Court Square Park field scan" --captured 2026-10-28 [--part-mb 40] [--georef data/scan-georef.json]
 """
 import argparse, hashlib, json, os, struct
 
@@ -19,6 +19,7 @@ ap.add_argument('--title', default='Field scan')
 ap.add_argument('--captured', default='')
 ap.add_argument('--device', default='')
 ap.add_argument('--part-mb', type=float, default=40)
+ap.add_argument('--georef', help='JSON with origin [lon, lat], x_bearing_deg, m_per_deg_lon, m_per_deg_lat for the scan frame')
 args = ap.parse_args()
 
 data = open(args.glb, 'rb').read()
@@ -44,6 +45,6 @@ for i in range(0, len(data), size):
 manifest = dict(version=1, name=args.name, title=args.title, captured=args.captured, device=args.device,
                 bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), triangles=tris, vertices=verts,
                 materials=[m.get('name', '') for m in gltf.get('materials', [])], frame=gltf['asset'].get('extras', {}).get('frame', ''),
-                parts=parts)
+                georef=json.load(open(args.georef)) if args.georef else None, parts=parts)
 json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)
 print(f"{args.name}: {len(data) / 1e6:.1f} MB -> {len(parts)} parts, {tris:,} triangles, {verts:,} vertices")
