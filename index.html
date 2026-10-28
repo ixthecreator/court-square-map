@@ -2676,7 +2676,7 @@ function createCityScene({ canvas, data, detail = null, onChange = function () {
     }
     // LOD3 site model (data/modeling): loaded the first time the Model tab opens
     const siteModel = q(&#x27;[data-site-model]&#x27;);
-    const SITE_MODEL_URL = new URL(&#x27;data/modeling/court_square_park_LOD3_preview.glb&#x27;, /\.github\.io$/.test(new URL(document.baseURI).hostname) ? document.baseURI : &#x27;https://ixthecreator.github.io/court-square-map/&#x27;).href;
+    const SITE_MODEL_URL = new URL(&#x27;data/modeling/court_square_park_LOD3_web.glb&#x27;, /\.github\.io$/.test(new URL(document.baseURI).hostname) ? document.baseURI : &#x27;https://ixthecreator.github.io/court-square-map/&#x27;).href;
     let siteModelPhase = &#x27;idle&#x27;;
     function siteModelCard(title, text, progress) {
       q(&#x27;[data-site-model-empty]&#x27;).hidden = title === null;
@@ -2695,7 +2695,7 @@ function createCityScene({ canvas, data, detail = null, onChange = function () {
     });
     siteModel.addEventListener(&#x27;load&#x27;, () =&gt; {
       siteModelPhase = &#x27;ready&#x27;; siteModelCard(null);
-      q(&#x27;[data-site-model-status]&#x27;).textContent = &#x27;LOD3 site model · built from the October 28, 2026 field scan and NYC data · Rhino 8 file in data/modeling/ · stair, lamp and bus shelter are approximate&#x27;;
+      q(&#x27;[data-site-model-status]&#x27;).textContent = &#x27;LOD3 site model · built from the October 28, 2026 field scan and NYC data · One Court Square left out so it does not block the view (it is in the Rhino file in data/modeling/) · stair, lamp and bus shelter are approximate&#x27;;
     });
     siteModel.addEventListener(&#x27;error&#x27;, () =&gt; {
       siteModelPhase = &#x27;error&#x27;; siteModelCard(&#x27;Site model unavailable&#x27;, &#x27;The model could not be loaded. Check the connection and open Model again.&#x27;);

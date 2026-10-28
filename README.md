@@ -13,7 +13,7 @@ A fullscreen, interactive map of Long Island City, a 3D field-scan viewer and a 
 - Move the height slider between flat footprints and the recorded roof heights.
 - Select the red park or **Scan** to open the field scan. On a desktop-sized window it downloads automatically (150 MB). On phones, narrow windows or with Data Saver on, select **Load field scan**.
 - **Symmetric fill** shows or hides the parts of the oval that were mirrored from the scanned side (see below).
-- Select **Model** for the LOD3 site model built from the scan (3.7 MB, loaded the first time you open it). Drag to orbit, scroll or use + / − to zoom; the orientation button returns to the default view. The Rhino 8 file is in [`data/modeling/`](data/modeling/).
+- Select **Model** for the LOD3 site model built from the scan (3.7 MB, loaded the first time you open it). One Court Square is left out of this view so it does not block the park; it is in the Rhino file. Drag to orbit, scroll or use + / − to zoom; the orientation button returns to the default view. The Rhino 8 file is in [`data/modeling/`](data/modeling/).
 - Use the pin button to add an observation inside the park. In the scan, choose **Add note** and click a surface; notes on the field scan show latitude, longitude and height above grade.
 
 Camera preferences, height settings, the symmetric-fill choice and up to 12 observation drafts are kept in this browser's local storage for the site. Clearing site data removes them.
@@ -53,6 +53,7 @@ The embedded data snapshot contains **3,699 building footprints** and **1,213 st
 | `court_square_scan_features.dxf` | Lawn oval, ring path, spray pad, benches (scanned and mirrored on separate layers), game tables, poles, symmetry axis |
 | `court_square_park_LOD3.3dm` | Rhino 8 site model at LOD3, built from the scan measurements: 697 objects on 36 layers (ground surfaces with 15 cm curbs, lawn and curb band, spray pad, 14 World's Fair benches with scanned and mirrored ones on separate layers, game tables, lawn chain fence, perimeter fence, lamp, sign, bus shelter, 69 trees, courthouse stair, 20 buildings). Editable NURBS extrusions, tree crowns as meshes, Earth anchor set to the park origin and true north |
 | `court_square_park_LOD3_preview.glb` | The same model as a GLB (Y-up) for Cinema 4D, Blender or a web viewer |
+| `court_square_park_LOD3_web.glb` | The copy the Model tab shows: the same GLB without One Court Square |
 | `court_square_massing.obj` | Surrounding buildings extruded to recorded roof heights (Y-up) |
 | `trees.csv`, `buildings.csv`, `scan_objects.csv` | Coordinate tables |
 

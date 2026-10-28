@@ -5,7 +5,8 @@ y = v toward Jackson Ave, z up, z = 0 at park grade (NAVD88 5.28 m). Ground leve
 type (roads 15 cm below the curb); the real site falls about 0.4 m from Jackson Ave to the courthouse.
 
 Usage: python scripts/build_model.py        (needs rhino3dm, shapely, mapbox_earcut, numpy)
-Writes model/court_square_park_LOD3.3dm and model/court_square_park_LOD3_preview.glb
+Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb and
+model/court_square_park_LOD3_web.glb (the website copy, without One Court Square)
 """
 import csv, json, math, os, struct, sys
 import numpy as np
@@ -402,11 +403,13 @@ def tri_prism(poly, z0, z1):
     return tris
 
 
-def write_glb(path):
+def write_glb(path, exclude=()):
     groups = {}
     def add(key, tris):
         groups.setdefault(key, []).extend(tris)
     for p in prisms:
+        if p['name'] in exclude:
+            continue
         add(p['color'] or LAYERS[p['layer']], tri_prism(p['poly'], p['z0'], p['z1']))
     for c in cylinders:
         add(c['color'] or LAYERS[c['layer']], tri_prism(Point(c['x'], c['y']).buffer(c['r'], 8), c['z0'], c['z1']))
@@ -443,6 +446,8 @@ bad = []
 f = write_3dm(D('model', 'court_square_park_LOD3.3dm'))
 print('extrusions that failed:', len(bad), sorted(set(bad))[:10])
 write_glb(D('model', 'court_square_park_LOD3_preview.glb'))
+# website copy: One Court Square (193 m) sits between the default camera and the park, so it is left out
+write_glb(D('model', 'court_square_park_LOD3_web.glb'), exclude={'BIN 4307108'})
 from collections import Counter
 cnt = Counter(p['layer'] for p in prisms) + Counter(c['layer'] for c in cylinders) + Counter(m['layer'] for m in meshes) + Counter(c['layer'] for c in curves)
 for k in sorted(cnt):
