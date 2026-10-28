@@ -13,7 +13,7 @@ python3 -I scripts/render_plans.py        # plans/*.png
 python scripts/scan_to_mesh.py "$1"       # TSDF 2 cm -> scan/court_square_scan_mesh.ply
 python scripts/mesh_to_glb.py             # -> scan/court_square_scan.glb, scan/court_square_scan_completed.glb
 python3 -I scripts/export_web.py "$2"     # -> <site>/data/park-detail.geojson, <site>/data/scan-georef.json
-# Rhino 8 model (needs: pip install rhino3dm shapely mapbox-earcut)
+# Rhino 8 model (needs: pip install rhino3dm shapely mapbox-earcut scipy pyogrio pyproj; data from fetch_open_data.sh)
 python scripts/clean_scan.py              # vehicles and specks removed -> scan/court_square_scan_clean.ply
 python scripts/build_model.py             # LOD3 -> model/court_square_park_LOD3.3dm (+ _preview.glb)
 python scripts/build_scan_3dm.py          # scan -> model/court_square_scan.3dm

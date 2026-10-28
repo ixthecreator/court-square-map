@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Download the NYC Open Data layers the pipeline uses into ./data (run from the working folder).
 set -e
+HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p data && cd data
 API=https://data.cityofnewyork.us/resource
 box() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "within_box($1,40.7478,-73.9455,40.7450,-73.9418)"; }
@@ -15,4 +16,9 @@ AREA=$(python3 -c "import urllib.parse;print(urllib.parse.quote(\"intersects(the
 for pair in i36f-5ih7:roadbed 52n9-sdep:sidewalk ees7-4ufv:median 5xvt-8cbk:curbs; do
   curl -s -o "plan2_${pair##*:}.geojson" "$API/${pair%%:*}.geojson?\$where=$AREA&\$limit=5000"
 done
+# current footprints (with construction year) and ground spot elevations for the detailed model
+curl -s -o buildings2.geojson "$API/5zhs-2jue.geojson?\$where=$AREA&\$limit=5000"
+curl -s -o plan2_elevation_points.geojson "$API/9uxf-ng6q.geojson?\$where=$AREA&\$limit=5000"
+# NYC 3D Building Model, delivery area 10 only (fetched by byte range from the city-wide zip)
+python3 -I "$HERE/fetch_nyc3d.py" nyc3d DA10
 ls -la

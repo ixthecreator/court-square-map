@@ -11,7 +11,8 @@ Snapshot retrieved **October 28, 2026**. Coordinates use WGS84 longitude and lat
 | [NYC Parks Properties](https://data.cityofnewyork.us/Recreation/Parks-Properties/enfh-gkve) | Court Square Park, property Q267 |
 | [2020 Neighborhood Tabulation Areas, NYC Department of City Planning, version 26b](https://data.cityofnewyork.us/City-Government/2020-Neighborhood-Tabulation-Areas-NTAs-/9nt8-h7nd) | Study-area boundary |
 | [Forestry Tree Points, NYC Parks](https://data.cityofnewyork.us/Environment/Forestry-Tree-Points/hn5i-inap) | Trees in and around the park (species, DBH) |
-| [NYC Planimetric Database](https://data.cityofnewyork.us/browse?q=planimetric): Curbs, Sidewalk, Roadbed, Median, Elevation Points | Scan registration and the modeling kit |
+| [NYC Planimetric Database](https://data.cityofnewyork.us/browse?q=planimetric): Curbs, Sidewalk, Roadbed, Median, Elevation Points | Scan registration, terrain and the modeling kit |
+| [NYC 3D Building Model, Office of Technology and Innovation](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_3DBuildingModel.md) (2014 survey, delivery area DA10) | LOD2 buildings in the site model |
 
 ## Coverage
 
@@ -54,14 +55,18 @@ Floating pieces under 300 triangles anywhere were also removed. Nothing else was
 
 `data/modeling/court_square_park_LOD3.3dm` is rebuilt from the measurements above by `tools/scan-pipeline/build_model.py`.
 
-**Ground.** Ground surfaces are flat by type: roadbed −0.15 m; sidewalks, forecourt and park paving 0; planting +0.05 m; lawn +0.03 m; spray pad −0.02 m. The 15 cm difference forms the curb. The real site falls about 0.4 m from Jackson Avenue to the courthouse (NYC spot elevations are on a reference layer).
+**Terrain.** A thin-plate spline (smoothing 3) through the NYC ground spot elevations, sampled on a 1 m grid. Points on the roadbed are raised 0.15 m first, so the fit describes sidewalk level; the roadbed is then drawn 0.15 m below it. The site falls about 0.4 m from Jackson Avenue to the courthouse.
+
+**Ground.** Each surface type is draped on the terrain with an offset: roadbed −0.15 m; sidewalks, curb stones, forecourt and park paving 0; planting +0.05 m; lawn +0.03 m; lawn curb +0.10 m; spray pad −0.02 m; tree pits −0.04 m. Paving joints are drawn as thin strips: 0.61 m pavers around the park and on the forecourt, 1.524 m flags on the other sidewalks, a 1.5 m grid on the two plazas and radial saw cuts about every 2.5 m on the ring path.
 
 **Layout sources.**
 - Park paving combines the ring path, the plazas, the south entrance and the two Jackson Avenue paths, all read off the scan ortho to about ±0.3 m.
 - Sidewalks come from NYC planimetrics, with the pre-2025 park paths still in that dataset removed.
 - Benches, tables and bollards sit at their scanned positions; mirrored benches are on their own layer.
 
-**Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Tree crowns are estimated from DBH. Buildings are footprint extrusions to recorded roof height.
+**Buildings.** Buildings that were standing in 2014 come from the NYC 3D Building Model (Multipatch walls and roofs, NAVD88 feet converted to park metres), matched to current footprints by BIN. The courthouse roof faces above 24 m are drawn in copper. Towers built in 2015 or later are not in that survey and are extruded from their current footprints to the recorded roof height.
+
+**Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
 
 Google Maps, Apple Maps and game interfaces informed the visual direction. Geographic geometry comes from the NYC datasets above; no Google or Apple map geometry is included.
 
