@@ -7,7 +7,7 @@ Two files in scan/:
 glTF is Y-up: x = park u, y = height, z = -park v (meters, same origin as the DXF files).
 Plain uncompressed GLB 2.0, everything embedded, unlit vertex colours (KHR_materials_unlit).\nMaterial 'scan' = observed surfaces, material 'inferred' = mirrored fill + lawn fill (so a viewer can hide it).
 
-Usage: python scripts/mesh_to_glb.py   (needs open3d to read the PLY)
+Usage: python scripts/mesh_to_glb.py   (needs open3d to read the PLY; run clean_scan.py first for the cleaned scan)
 """
 import json, math, os, struct
 import numpy as np
@@ -18,7 +18,8 @@ S = lambda *p: os.path.join(ROOT, 'scan', *p)
 feat = json.load(open(S('features.json')))
 lawn, ring, sym = feat['lawn_oval'], feat['ring_outer'], feat['symmetry']
 
-m = o3d.io.read_triangle_mesh(S('court_square_scan_mesh.ply'))
+# prefer the cleaned mesh (vehicles and specks removed by clean_scan.py)
+m = o3d.io.read_triangle_mesh(S('court_square_scan_clean.ply') if os.path.exists(S('court_square_scan_clean.ply')) else S('court_square_scan_mesh.ply'))
 V = np.asarray(m.vertices, dtype=np.float64)
 F = np.asarray(m.triangles, dtype=np.int64)
 C = np.asarray(m.vertex_colors, dtype=np.float64)
