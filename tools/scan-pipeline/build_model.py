@@ -14,8 +14,9 @@ z up, z = 0 at park grade (NAVD88 5.28 m).
 - the courthouse facade, entrance and roofs at LOD3 from photos on top of its survey massing (scripts/courthouse.py)
 
 Usage: python scripts/build_model.py   (needs rhino3dm, shapely, mapbox_earcut, scipy, pyogrio, pyproj)
-Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb and
-       model/court_square_park_LOD3_web.glb (the website copy: without One Court Square, quantized to half the size)
+Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb,
+       model/court_square_park_LOD3_web.glb (the website copy, quantized to half the size) and
+       model/court_square_park_LOD3_web.buildings.json (footprint prisms the website uses to fade buildings that block the view)
 """
 import csv, json, math, os, sys
 import numpy as np
@@ -40,7 +41,6 @@ lawn_e, ring_e, sym, pad = feat['lawn_oval'], feat['ring_outer'], feat['symmetry
 GRADE = site['frame']['park_grade_navd88_m']
 EXTENT = box(-45, -45, 95, 85)              # streets and ground
 BLDG_EXTENT = box(-90, -110, 150, 170)       # buildings
-WEB_EXCLUDE = ('BIN 4307108',)              # One Court Square blocks the website's default camera
 objs, curves, dots = [], [], []             # objs: dict(layer, V, F, color, smooth, name, src)
 
 
@@ -364,6 +364,7 @@ def lod2_faces(blobs):
 
 
 n_lod2 = n_lod1 = 0
+bldg_plan = {}                               # BIN -> plan polygon, for the website's fade test
 z_entry = z_stair + N_STEPS * RISE
 gaps = []
 GLASS_TOWER, BANDS = (128, 150, 164), (206, 210, 212)
@@ -380,6 +381,7 @@ for b in footprints:
         # the current footprint can run past the 2014 walls: fill narrow strips like that with ground
         gap = b['poly'].difference(bottom.buffer(0.02)).intersection(EXTENT)
         gaps += [(g, court) for g in polys(gap) if g.buffer(-1.0).is_empty]
+        bldg_plan[b['bin']] = bottom if not bottom.is_empty else b['poly']
         if court:
             massing, cparts = courthouse.build(faces, axis_u, FACADE_V, z_entry)
             lay = '40_Buildings::Courthouse (LOD2)'
@@ -411,6 +413,7 @@ for b in footprints:
                 add('40_Buildings::Context (LOD1, built 2015 or later)',
                     mp.merge([mp.prism(edge, z, z + 0.4) for z in np.arange(z0 + 4.4, z0 + b['h'] - 1.0, 3.2)]), BANDS, name + ' floor bands',
                     'generic 3.2 m storeys, not surveyed')
+        bldg_plan[b['bin']] = b['poly']
         n_lod1 += 1
 for g, court in gaps:
     add('10_Ground::Footprint gaps', mp.drape(g, T, 0.0, grid=1.5), (214, 208, 196) if court else (206, 204, 196), 'ground between footprint and 2014 walls',
@@ -497,15 +500,27 @@ def write_3dm(path):
 
 
 write_3dm(D('model', 'court_square_park_LOD3.3dm'))
-groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], name=o['layer'].split('::')[-1], rough=o['rough']) for o in objs]
+# buildings keep their own materials (bldg:<BIN> ...) so a viewer can fade one building at a time
+bin_of = lambda o: o['name'].split()[1] if o['name'].startswith('BIN ') else None
+groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], rough=o['rough'],
+               name=(f"bldg:{bin_of(o)} " if bin_of(o) else '') + o['layer'].split('::')[-1]
+               + (' facade bands' if o['name'].endswith('floor bands') else '')) for o in objs]
 tri_all = write_glb(D('model', 'court_square_park_LOD3_preview.glb'), groups, 'court-square-park scripts/build_model.py')
-tri_web = write_glb(D('model', 'court_square_park_LOD3_web.glb'),
-                    [g for g, o in zip(groups, objs) if not o['name'].startswith(WEB_EXCLUDE)],
-                    'court-square-park scripts/build_model.py (website copy without One Court Square)', quantize=True)
+tri_web = write_glb(D('model', 'court_square_park_LOD3_web.glb'), groups, 'court-square-park scripts/build_model.py (website copy)', quantize=True)
+fade = {}
+for o in objs:
+    k = bin_of(o)
+    if k in bldg_plan:
+        z = o['V'][:, 2]; lo, hi = fade.get(k, (z.min(), z.max()))
+        fade[k] = (min(lo, z.min()), max(hi, z.max()))
+rings = lambda g: [[[round(x, 2), round(-y, 2)] for x, y in list(p.exterior.coords)[:-1]] for p in polys(g)]
+json.dump(dict(frame='glTF: x = u, y = up, z = -v (metres)', buildings={k: dict(rings=rings(bldg_plan[k]), y0=round(float(lo), 2), y1=round(float(hi), 2))
+                                                                          for k, (lo, hi) in fade.items()}),
+          open(D('model', 'court_square_park_LOD3_web.buildings.json'), 'w'), separators=(',', ':'))
 from collections import Counter
 cnt = Counter(o['layer'] for o in objs)
 for k in sorted(cnt):
     print(f'{cnt[k]:5d}  {k}')
 print('objects', len(objs), '| triangles preview', tri_all, 'web', tri_web, '| bollards', len(bollards), 'spacing', round(spacing, 2))
-for fn in ('court_square_park_LOD3.3dm', 'court_square_park_LOD3_preview.glb', 'court_square_park_LOD3_web.glb'):
+for fn in ('court_square_park_LOD3.3dm', 'court_square_park_LOD3_preview.glb', 'court_square_park_LOD3_web.glb', 'court_square_park_LOD3_web.buildings.json'):
     print(f'{fn}: {os.path.getsize(D("model", fn)) / 1e6:.1f} MB')
