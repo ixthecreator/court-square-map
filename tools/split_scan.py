@@ -31,19 +31,21 @@ tris = sum(gltf['accessors'][p['indices']]['count'] // 3 for m in gltf['meshes']
 verts = sum(gltf['accessors'][p['attributes']['POSITION']]['count'] for m in gltf['meshes'] for p in m['primitives'])
 
 os.makedirs(OUT, exist_ok=True)
-for f in os.listdir(OUT):
-    if f.startswith(args.name + '.part'):
+for f in os.listdir(OUT):       # drop parts of earlier versions of this scan
+    if f.startswith(args.name + '.') and '.part' in f:
         os.remove(os.path.join(OUT, f))
+digest = hashlib.sha256(data).hexdigest()
 size = int(args.part_mb * 1024 * 1024)
 parts = []
 for i in range(0, len(data), size):
     chunk = data[i:i + size]
-    fn = f'{args.name}.part{len(parts):03d}'
+    # the content hash in the name keeps cached parts of an older version from mixing with a new manifest
+    fn = f'{args.name}.{digest[:12]}.part{len(parts):03d}'
     open(os.path.join(OUT, fn), 'wb').write(chunk)
     parts.append(dict(path=fn, bytes=len(chunk), sha256=hashlib.sha256(chunk).hexdigest()))
 
 manifest = dict(version=1, name=args.name, title=args.title, captured=args.captured, device=args.device,
-                bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), triangles=tris, vertices=verts,
+                bytes=len(data), sha256=digest, triangles=tris, vertices=verts,
                 materials=[m.get('name', '') for m in gltf.get('materials', [])], frame=gltf['asset'].get('extras', {}).get('frame', ''),
                 georef=json.load(open(args.georef)) if args.georef else None, parts=parts)
 json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)

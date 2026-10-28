@@ -22,12 +22,12 @@ Camera preferences, height settings, the symmetric-fill choice and up to 12 obse
 | | |
 |---|---|
 | Captured | October 28, 2026, iPhone 16 Pro LiDAR, 3,385 keyframes |
-| Model | 6,740,357 triangles, 3,470,291 vertices, 150.3 MB GLB 2.0 |
-| Processing | TSDF fusion at 2 cm from high-confidence depth; vertex colour from the full-resolution camera frames; no decimation, no mesh or texture compression |
+| Model | 6,685,714 triangles, 3,438,352 vertices, 149.0 MB GLB 2.0 |
+| Processing | TSDF fusion at 2 cm from high-confidence depth; vertex colour from the full-resolution camera frames; parked vehicles and floating specks removed; no decimation, no mesh or texture compression |
 | Coordinates | Meters. Origin at the park corner where Court Square West meets the courthouse forecourt; +x along the courthouse edge toward Thomson Avenue, −z toward Jackson Avenue, y up from park grade |
 | Registration | Fitted to the NYC Parks property line and NYC planimetric curbs; see [DATA_SOURCES.md](DATA_SOURCES.md) |
 
-GitHub does not accept files over 100 MB, so [`scan/`](scan/) holds the GLB as four byte-exact parts. The page downloads them in parallel, checks the SHA-256 of the joined file against [`scan/manifest.json`](scan/manifest.json) and passes the original GLB to the viewer unchanged.
+GitHub does not accept files over 100 MB, so [`scan/`](scan/) holds the GLB as four byte-exact parts, named with the file's hash so a cached older part can never be mixed into a newer scan. The page downloads them in parallel, checks the SHA-256 of the joined file against [`scan/manifest.json`](scan/manifest.json) and passes the original GLB to the viewer unchanged.
 
 The model has two materials:
 
@@ -50,6 +50,8 @@ The embedded data snapshot contains **3,699 building footprints** and **1,213 st
 |---|---|
 | `court_square_site_base.dxf` | Park property line, building footprints, curbs, sidewalks, roadbed, medians, trees with estimated canopies, spot elevations (layers, meters) |
 | `court_square_scan_features.dxf` | Lawn oval, ring path, spray pad, benches (scanned and mirrored on separate layers), game tables, poles, symmetry axis |
+| `court_square_park_LOD3.3dm` | Rhino 8 site model at LOD3, built from the scan measurements: 697 objects on 36 layers (ground surfaces with 15 cm curbs, lawn and curb band, spray pad, 14 World's Fair benches with scanned and mirrored ones on separate layers, game tables, lawn chain fence, perimeter fence, lamp, sign, bus shelter, 69 trees, courthouse stair, 20 buildings). Editable NURBS extrusions, tree crowns as meshes, Earth anchor set to the park origin and true north |
+| `court_square_park_LOD3_preview.glb` | The same model as a GLB (Y-up) for Cinema 4D, Blender or a web viewer |
 | `court_square_massing.obj` | Surrounding buildings extruded to recorded roof heights (Y-up) |
 | `trees.csv`, `buildings.csv`, `scan_objects.csv` | Coordinate tables |
 
@@ -70,7 +72,7 @@ To publish a new scan, export an uncompressed GLB in the same coordinates, then 
 python3 tools/split_scan.py new-scan.glb --name court-square-park-YYYY-MM-DD.glb --title "Court Square Park field scan" --captured YYYY-MM-DD --device "Device" --georef data/scan-georef.json
 ```
 
-Commit the new parts and manifest. Notes made on the old scan stay attached to its filename.
+Commit the new parts and manifest. Notes made on the old scan stay attached to its filename, so keep the name when the geometry stays in the same coordinates.
 
 ## Run and publish
 
