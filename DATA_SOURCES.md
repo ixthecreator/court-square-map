@@ -64,9 +64,17 @@ Floating pieces under 300 triangles anywhere were also removed. Nothing else was
 - Sidewalks come from NYC planimetrics, with the pre-2025 park paths still in that dataset removed.
 - Benches, tables and bollards sit at their scanned positions; mirrored benches are on their own layer.
 
-**Buildings.** Buildings that were standing in 2014 come from the NYC 3D Building Model (Multipatch walls and roofs, NAVD88 feet converted to park metres), matched to current footprints by BIN. The courthouse roof faces above 24 m are drawn in copper. Towers built in 2015 or later are not in that survey and are extruded from their current footprints to the recorded roof height.
+**Buildings.** Buildings that were standing in 2014 come from the NYC 3D Building Model (Multipatch walls and roofs, NAVD88 feet converted to park metres), matched to current footprints by BIN. Towers built in 2015 or later are not in that survey and are extruded from their current footprints to the recorded roof height, as glass with generic 3.2 m floor bands. Where a current footprint runs past the 2014 walls (0.9 m in front of the courthouse), the strip is filled with ground.
 
-**Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
+**Courthouse.** The survey massing is kept up to the main roof (21.2 m). On it, `tools/scan-pipeline/courthouse.py` adds detail read off [Wikimedia Commons photos of the courthouse](https://commons.wikimedia.org/wiki/Category:Long_Island_City_Courthouse_Complex) (2018–2026):
+- limestone base with rustication, string course, cornice, parapet and corner pilasters
+- windows with limestone surrounds and white sashes, in bays on every wall a lower block does not cover
+- the park entrance: landing, arched doorway with fanlight, two pairs of columns, entablature, balustrade, stair cheek walls and the parapet oculus
+- the mansard over the attic block and the copper roof over the centre pavilion, which the survey has as boxes
+
+Bay spacing, storey heights and column sizes are estimates, so these parts sit on layers marked approx. The entrance is centred on the park axis, about 0.5 m from the centre of the survey's roof block.
+
+**Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Planting beds are drawn as groundcover, since the scan keyframes show grass and leaf litter there, with mulch rings at the park trees. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
 
 Google Maps, Apple Maps and game interfaces informed the visual direction. Geographic geometry comes from the NYC datasets above; no Google or Apple map geometry is included.
 

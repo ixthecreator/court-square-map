@@ -10,11 +10,12 @@ z up, z = 0 at park grade (NAVD88 5.28 m).
   Parks lamppost, sign, bus shelter, spray-pad drain
 - species-based procedural trees (NYC Forestry points, crowns estimated from DBH)
 - buildings: NYC 3D Building Model (2014 survey, LOD1/2 hybrid) where the building predates 2015, otherwise the current
-  footprint extruded to its recorded roof height
+  footprint extruded to its recorded roof height (glass, with floor bands)
+- the courthouse facade, entrance and roofs at LOD3 from photos on top of its survey massing (scripts/courthouse.py)
 
 Usage: python scripts/build_model.py   (needs rhino3dm, shapely, mapbox_earcut, scipy, pyogrio, pyproj)
 Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb and
-       model/court_square_park_LOD3_web.glb (the website copy, without One Court Square)
+       model/court_square_park_LOD3_web.glb (the website copy: without One Court Square, quantized to half the size)
 """
 import csv, json, math, os, sys
 import numpy as np
@@ -29,6 +30,7 @@ from shapely.ops import unary_union
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parkframe import ROOT, polygons_uv, uv, NORTH, EAST, ORIGIN_LL
 import model_parts as mp
+import courthouse
 from glb_writer import write_glb
 
 D = lambda *p: os.path.join(ROOT, *p)
@@ -42,13 +44,13 @@ WEB_EXCLUDE = ('BIN 4307108',)              # One Court Square blocks the websit
 objs, curves, dots = [], [], []             # objs: dict(layer, V, F, color, smooth, name, src)
 
 
-def add(layer, VF, color, name='', src='', smooth=False):
+def add(layer, VF, color, name='', src='', smooth=False, rough=0.9):
     V, F = np.asarray(VF[0], float), np.asarray(VF[1], int)
     if len(F):   # drop zero-area triangles (revolve tips, slivers from clipping): Rhino flags them as invalid
         area = np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1)
         F = F[area > 1e-9]
     if len(F):
-        objs.append(dict(layer=layer, V=np.asarray(V, float), F=np.asarray(F, int), color=tuple(color), smooth=smooth, name=name, src=src))
+        objs.append(dict(layer=layer, V=np.asarray(V, float), F=np.asarray(F, int), color=tuple(color), smooth=smooth, name=name, src=src, rough=rough))
 
 
 def parts(path):
@@ -136,7 +138,7 @@ sidewalks = unary_union([p for p in parts(D('data', 'plan2_sidewalk.geojson')) i
 sidewalks = sidewalks.difference(park).difference(buildings_all)
 # park landscape: the property plus the strip between it and the Thomson / Jackson sidewalks
 landscape = park_block.intersection(park.union(box(park.bounds[0], 0, park.bounds[2] + 4, park.bounds[3] + 0.3))).difference(sidewalks).difference(buildings_all)
-FACADE_V, STAIR_W, RISE, TREAD, N_STEPS = -17.4, 9.0, 0.165, 0.33, 10
+FACADE_V, STAIR_W, RISE, TREAD, N_STEPS = -16.8, 9.0, 0.165, 0.33, 10   # stair foot; the landing runs back to the facade
 forecourt = sidewalks.intersection(box(-0.5, -17.8, 51.5, 0.0))
 sidewalks = sidewalks.difference(box(-0.5, -17.8, 51.5, 0.0))
 stair_cut = box(axis_u - STAIR_W / 2, FACADE_V, axis_u + STAIR_W / 2, FACADE_V + N_STEPS * TREAD)
@@ -167,7 +169,7 @@ GROUND = [  # layer, geometry, offset, colour, grid
     ('10_Ground::Forecourt', forecourt, 0.0, (214, 208, 196), 2.0),
     ('10_Ground::Other ground', other, 0.0, (170, 170, 165), 3.0),
     ('10_Ground::Park paving', paving, 0.0, (176, 178, 176), 1.5),
-    ('10_Ground::Planting beds', planting, 0.05, (88, 82, 60), 1.5),
+    ('10_Ground::Planting beds', planting, 0.05, (112, 126, 70), 1.5),
     ('10_Ground::Lawn', lawn, 0.03, (96, 148, 78), 1.5),
     ('10_Ground::Lawn curb', lawn_curb, 0.10, (236, 236, 230), 0.8),
     ('10_Ground::Spray pad', spray, -0.02, (160, 182, 198), 1.0),
@@ -284,6 +286,10 @@ for i, t in enumerate(trees):
     x, y = float(t['x_m']), float(t['y_m'])
     off = 0.05 if planting.contains(Point(x, y)) else -0.04 if pits.contains(Point(x, y)) else 0.0
     bark, leaves, col = mp.tree(x, y, Tp(x, y) + off, t['species'], float(t['dbh_in'] or 4), float(t['height_m_est']), float(t['crown_d_m_est']), seed=1000 + i)
+    if off == 0.05:   # mulch ring at the trunk
+        ring = Point(x, y).buffer(float(np.clip(0.5 + float(t['dbh_in'] or 4) * 0.03, 0.7, 1.4)), 12).intersection(planting)
+        for p in polys(ring):
+            add('10_Ground::Mulch rings', mp.drape(p, T, 0.065, bottom=0.05, grid=1.5), (86, 68, 50), 'mulch ring', 'around park trees')
     lay = '30_Trees::Park trees' if t['in_park'] == 'True' else '30_Trees::Street trees'
     nm = f"{t['species']} DBH {float(t['dbh_in'] or 0):.0f} in"
     add(lay, bark, (96, 76, 58), nm + ' trunk', 'NYC Forestry; form from species, size from DBH', smooth=True)
@@ -333,17 +339,34 @@ def lod2_faces(blobs):
                 out.append([W, tri, nrm])
     if not out:
         return []
-    # multipatch rings are not consistently wound: turn every face to point away from the building's centre
+    # multipatch rings are not consistently wound. Horizontal faces at the building's base face down and every other
+    # horizontal face up; a wall faces the side where a probe just off it is outside the volume under the roofs
+    zb = min(W[:, 2].min() for W, _, _ in out)
+    roofs_xy = []
+    for i, (W, tri, nrm) in enumerate(out):
+        if abs(nrm[2]) > 0.5:
+            want = -1.0 if W[:, 2].max() < zb + 0.3 else 1.0
+            if nrm[2] * want < 0:
+                out[i] = [W, tri[:, [0, 2, 1]], -nrm]
+            if want > 0:
+                roofs_xy.append((unary_union([Polygon(W[t][:, :2]) for t in tri if Polygon(W[t][:, :2]).area > 1e-6]), W[:, 2].max()))
     centre = np.vstack([W for W, _, _ in out]).mean(0)
     res = []
     for W, tri, nrm in out:
-        if np.dot(nrm, W.mean(0) - centre) < 0:
-            nrm = -nrm; tri = tri[:, [0, 2, 1]]
+        if abs(nrm[2]) <= 0.5:
+            c = W.mean(0); pr = c + 0.3 * nrm
+            under = [z for poly, z in roofs_xy if poly.contains(Point(pr[0], pr[1]))]
+            inside = bool(under) and max(under) > pr[2]
+            if inside or (not roofs_xy and np.dot(nrm, c - centre) < 0):
+                nrm = -nrm; tri = tri[:, [0, 2, 1]]
         res.append(((W, tri), nrm[2] > 0.5, W[:, 2].min(), W[:, 2].max(), nrm[2]))
     return res
 
 
 n_lod2 = n_lod1 = 0
+z_entry = z_stair + N_STEPS * RISE
+gaps = []
+GLASS_TOWER, BANDS = (128, 150, 164), (206, 210, 212)
 for b in footprints:
     if b['h'] <= 0:
         continue
@@ -353,22 +376,45 @@ for b in footprints:
         faces = lod2_faces(model3d[b['bin']])
         if not faces:
             continue
-        is_copper = lambda zmax, nz: court and zmax > 24.0 and abs(nz) > 0.15   # mansard and dome above the main roof (21.2 m)
-        wall = [vf for vf, roof, z0, z1, nz in faces if not roof and not is_copper(z1, nz)]
-        roof = [vf for vf, roof, z0, z1, nz in faces if roof and not is_copper(z1, nz)]
-        copper = [vf for vf, roof, z0, z1, nz in faces if is_copper(z1, nz)]
-        layer = '40_Buildings::Courthouse (LOD2)' if court else '40_Buildings::Context (LOD2, 2014 survey)'
-        add(layer, mp.merge(wall), (196, 118, 94) if court else (214, 214, 218), name + ' walls', 'NYC 3D Building Model (2014)')
-        add(layer, mp.merge(roof), (168, 112, 96) if court else (190, 190, 196), name + ' roofs', 'NYC 3D Building Model (2014)')
-        add(layer, mp.merge(copper), (118, 168, 150), name + ' copper roof and dome', 'NYC 3D Building Model (2014)')
+        bottom = unary_union([Polygon(W[t][:, :2]) for (W, tri), roof, z0, z1, nz in faces if nz < -0.5 for t in tri if Polygon(W[t][:, :2]).area > 1e-6])
+        # the current footprint can run past the 2014 walls: fill narrow strips like that with ground
+        gap = b['poly'].difference(bottom.buffer(0.02)).intersection(EXTENT)
+        gaps += [(g, court) for g in polys(gap) if g.buffer(-1.0).is_empty]
+        if court:
+            massing, cparts = courthouse.build(faces, axis_u, FACADE_V, z_entry)
+            lay = '40_Buildings::Courthouse (LOD2)'
+            add(lay, mp.merge(massing['walls']), courthouse.BRICK, name + ' walls', 'NYC 3D Building Model (2014)')
+            add(lay, mp.merge(massing['roofs']), (150, 144, 138), name + ' roofs', 'NYC 3D Building Model (2014)')
+            for part, col, vf, smooth in cparts:
+                roofpart = part in ('copper roof', 'mansard roof')
+                add('40_Buildings::Courthouse roofs (approx)' if roofpart else '40_Buildings::Courthouse facade (approx)', vf, col,
+                    name + ' ' + part, 'from photos (Wikimedia Commons 2018-2026), on the 2014 survey massing', smooth=smooth,
+                    rough=0.3 if part == 'windows' else 0.55 if part == 'copper roof' else 0.9)
+        else:
+            wall = [vf for vf, roof, z0, z1, nz in faces if not roof]
+            roof = [vf for vf, roof, z0, z1, nz in faces if roof]
+            glass = b['bin'] == '4307108'          # One Court Square: green glass curtain wall
+            shade = 204 + int(b['bin'][-2:]) % 5 * 4
+            col_w = (98, 140, 134) if glass else (shade, shade - 2, shade - 6)
+            add('40_Buildings::Context (LOD2, 2014 survey)', mp.merge(wall), col_w, name + ' walls', 'NYC 3D Building Model (2014)', rough=0.35 if glass else 0.9)
+            add('40_Buildings::Context (LOD2, 2014 survey)', mp.merge(roof), (190, 190, 196), name + ' roofs', 'NYC 3D Building Model (2014)')
         n_lod2 += 1
     else:
         z0 = b['ground'] - GRADE
         zb = min(float(T(*np.array(b['poly'].exterior.coords).T).min()), z0) - 0.3
         for p in polys(b['poly']):
-            add('40_Buildings::Context (LOD1, built 2015 or later)', mp.prism(orient(p, 1.0), zb, z0 + b['h']), (222, 222, 226), name,
-                f'NYC footprint extruded to roof {b["h"]:.1f} m (year {b["year"]})')
+            p = orient(p, 1.0)
+            add('40_Buildings::Context (LOD1, built 2015 or later)', mp.prism(p, zb, z0 + b['h']), GLASS_TOWER, name,
+                f'NYC footprint extruded to roof {b["h"]:.1f} m (year {b["year"]})', rough=0.35)
+            edge = Polygon(p.exterior.coords).buffer(0.06, join_style=2).difference(Polygon(p.exterior.coords))
+            if b['h'] > 12:   # floor slabs every 3.2 m, so the glass towers read at their scale
+                add('40_Buildings::Context (LOD1, built 2015 or later)',
+                    mp.merge([mp.prism(edge, z, z + 0.4) for z in np.arange(z0 + 4.4, z0 + b['h'] - 1.0, 3.2)]), BANDS, name + ' floor bands',
+                    'generic 3.2 m storeys, not surveyed')
         n_lod1 += 1
+for g, court in gaps:
+    add('10_Ground::Footprint gaps', mp.drape(g, T, 0.0, grid=1.5), (214, 208, 196) if court else (206, 204, 196), 'ground between footprint and 2014 walls',
+        'NYC footprint minus the 2014 survey walls')
 print(f'buildings: {n_lod2} LOD2 from the 2014 model, {n_lod1} extruded (built 2015+ or missing from it)')
 
 
@@ -451,11 +497,11 @@ def write_3dm(path):
 
 
 write_3dm(D('model', 'court_square_park_LOD3.3dm'))
-groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], name=o['layer'].split('::')[-1]) for o in objs]
+groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], name=o['layer'].split('::')[-1], rough=o['rough']) for o in objs]
 tri_all = write_glb(D('model', 'court_square_park_LOD3_preview.glb'), groups, 'court-square-park scripts/build_model.py')
 tri_web = write_glb(D('model', 'court_square_park_LOD3_web.glb'),
                     [g for g, o in zip(groups, objs) if not o['name'].startswith(WEB_EXCLUDE)],
-                    'court-square-park scripts/build_model.py (website copy without One Court Square)')
+                    'court-square-park scripts/build_model.py (website copy without One Court Square)', quantize=True)
 from collections import Counter
 cnt = Counter(o['layer'] for o in objs)
 for k in sorted(cnt):
