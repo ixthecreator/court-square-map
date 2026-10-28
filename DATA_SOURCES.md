@@ -35,7 +35,12 @@ Court Square Park's official polygon has center `[-73.943459, 40.746356]` and re
 
 **Capture.** iPhone 16 Pro LiDAR, October 28, 2026, about 19 minutes walking the ring path, perimeter and sidewalks: 3,385 keyframes with depth (256 × 192), depth confidence, RGB (1024 × 768), ARKit poses and GPS. It was recorded as one ARKit tracking session with no relocalization breaks.
 
-**Mesh.** Only high-confidence depth up to 3.5 m was used. It was fused into a truncated signed distance field (2 cm voxels, 8 cm truncation, at least two observations per surface) and extracted with marching cubes. Vertex colour is sampled from the full-resolution frames. Floating specks under 100 triangles were removed; nothing else was simplified. The GLB stores sRGB colour as 16-bit linear values (glTF convention), so the 8-bit camera colour is preserved exactly.
+**Mesh.** Only high-confidence depth up to 3.5 m was used. It was fused into a truncated signed distance field (2 cm voxels, 8 cm truncation, at least two observations per surface) and extracted with marching cubes. Vertex colour is sampled from the full-resolution frames. Parked cars were then removed in three passes:
+- On the NYC roadbed, anything more than 25 cm above the local road surface (5th percentile over 7.5 m).
+- Within 35 cm of the curb line, where the curb itself stands, anything more than 45 cm above it. The scanner saw only the sidewalk side of parked cars, so most of them fell in that band.
+- Leftover separate pieces under 50,000 triangles that lie on the roadbed and sit more than 30 cm above the road around them.
+
+Floating pieces under 300 triangles anywhere were also removed. Nothing else was simplified. The GLB stores sRGB colour as 16-bit linear values (glTF convention), so the 8-bit camera colour is preserved exactly.
 
 **Registration.** A rigid fit of the camera path to its GPS fixes (median residual 1.2 m) placed the scan. An ICP fit of scanned curb and step edges to NYC planimetric curbs then corrected it by 0.84 m. As a check, five scanned tree trunks sit a median 1.2 m from their NYC Forestry points. Heights are relative to park grade (NAVD88 ≈ 5.28 m from planimetric spot elevations).
 
@@ -43,7 +48,20 @@ Court Square Park's official polygon has center `[-73.943459, 40.746356]` and re
 
 **Park layer.** `data/park-detail.geojson` holds the measured lawn oval (≈ 22.8 × 21.9 m), ring path (≈ 2.4 m wide), spray pad (15.5 × 5.7 m), 14 benches (8 scanned, 6 mirrored), 4 game tables, the game-table and bistro plazas (approximate rectangles) and one pole. It also holds 23 NYC Forestry trees with crowns estimated from DBH. Three blue spruces still listed in the Forestry data stood where the new lawn and spray pad are; they are not on the scan and are omitted.
 
-**Limits.** The scan is a field record, not a survey. The western planting beds, most of the courthouse forecourt and part of the Jackson Avenue sidewalk were not scanned. Tree canopies above about 3 m are not captured. Crown sizes are estimates. Parked cars and anything else present during the scan appear in it.
+**Limits.** The scan is a field record, not a survey. The western planting beds, most of the courthouse forecourt and part of the Jackson Avenue sidewalk were not scanned. Tree canopies above about 3 m are not captured. Crown sizes are estimates. Vehicles on the roadbed were removed; anything else present during the scan, on sidewalks or in the park, remains.
+
+## LOD3 site model
+
+`data/modeling/court_square_park_LOD3.3dm` is rebuilt from the measurements above by `tools/scan-pipeline/build_model.py`.
+
+**Ground.** Ground surfaces are flat by type: roadbed −0.15 m; sidewalks, forecourt and park paving 0; planting +0.05 m; lawn +0.03 m; spray pad −0.02 m. The 15 cm difference forms the curb. The real site falls about 0.4 m from Jackson Avenue to the courthouse (NYC spot elevations are on a reference layer).
+
+**Layout sources.**
+- Park paving combines the ring path, the plazas, the south entrance and the two Jackson Avenue paths, all read off the scan ortho to about ±0.3 m.
+- Sidewalks come from NYC planimetrics, with the pre-2025 park paths still in that dataset removed.
+- Benches, tables and bollards sit at their scanned positions; mirrored benches are on their own layer.
+
+**Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Tree crowns are estimated from DBH. Buildings are footprint extrusions to recorded roof height.
 
 Google Maps, Apple Maps and game interfaces informed the visual direction. Geographic geometry comes from the NYC datasets above; no Google or Apple map geometry is included.
 
