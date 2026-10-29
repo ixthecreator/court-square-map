@@ -7,7 +7,7 @@ z up, z = 0 at park grade (NAVD88 5.28 m).
 - ground surfaces draped on the terrain; roadbed 15 cm below the curb; granite curb band, planting edge band, tree pits
 - paving joints: 0.61 m pavers around the park and on the forecourt, 5 ft flags elsewhere, radial saw cuts on the ring path
 - furniture from the scan positions: World's Fair benches, chess tables, chain-and-bollard lawn fence, spear-top rail fence,
-  Parks lamppost, sign, bus shelter, spray-pad drain
+  Parks lamppost, rules sign (its face is the field photo, scripts/sign_texture.py), bus shelter, spray-pad drain
 - species-based procedural trees (NYC Forestry points, crowns estimated from DBH)
 - buildings: NYC 3D Building Model (2014 survey, LOD1/2 hybrid) where the building predates 2015, otherwise the current
   footprint extruded to its recorded roof height (glass, with floor bands)
@@ -16,11 +16,11 @@ z up, z = 0 at park grade (NAVD88 5.28 m).
   street centerline, signals, street lights on registered city poles, DSNY litter baskets, parking meters
 
 Usage: python scripts/build_model.py   (needs rhino3dm, shapely, mapbox_earcut, scipy, pyogrio, pyproj)
-Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb,
+Writes model/court_square_park_LOD3.3dm (+ court_square_park_sign.jpg, its sign texture), model/court_square_park_LOD3_preview.glb,
        model/court_square_park_LOD3_web.glb (the website copy, quantized to half the size) and
        model/court_square_park_LOD3_web.buildings.json (footprint prisms the website uses to fade buildings that block the view)
 """
-import csv, json, math, os, sys
+import csv, json, math, os, shutil, sys
 import numpy as np
 import rhino3dm as r
 import pyogrio, pyproj
@@ -47,13 +47,14 @@ BLDG_EXTENT = box(-90, -110, 150, 170)       # buildings
 objs, curves, dots = [], [], []             # objs: dict(layer, V, F, color, smooth, name, src)
 
 
-def add(layer, VF, color, name='', src='', smooth=False, rough=0.9):
+def add(layer, VF, color, name='', src='', smooth=False, rough=0.9, uv=None, texture=None):
     V, F = np.asarray(VF[0], float), np.asarray(VF[1], int)
     if len(F):   # drop zero-area triangles (revolve tips, slivers from clipping): Rhino flags them as invalid
         area = np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1)
         F = F[area > 1e-9]
     if len(F):
-        objs.append(dict(layer=layer, V=np.asarray(V, float), F=np.asarray(F, int), color=tuple(color), smooth=smooth, name=name, src=src, rough=rough))
+        objs.append(dict(layer=layer, V=np.asarray(V, float), F=np.asarray(F, int), color=tuple(color), smooth=smooth, name=name, src=src, rough=rough,
+                         uv=uv, texture=texture))
 
 
 def parts(path):
@@ -270,11 +271,21 @@ if lamp:
     add('20_Furniture::Lamps (approx height)', post, mp.BLACK, 'lamppost', 'scan position, height approx', smooth=True)
     add('20_Furniture::Lamps (approx height)', globe, (242, 240, 228), 'globe', smooth=True)
     add('20_Furniture::Lamps (approx height)', padp, mp.CONCRETE, 'lamp pad')
+# Parks rules sign facing Jackson Ave (+v). Scan: 1.31 m wide, 1.59 m tall. The field photo (scripts/sign_texture.py) gives the
+# panel's width/height, 1.713, shows it screwed to the front of two posts 3 cm below their tops, and is its face
 sign = min((o for o in feat['objects'] if o['kind'] == 'tall object'), key=lambda o: math.hypot(o['x'] - 31.9, o['y'] - 39.4))
-c = at(sign['x'], sign['y'], 0.05)
-add('20_Furniture::Signs', mp.merge([mp.frame_box(c, (1, 0), (0, 1), s - 0.04, s + 0.04, -0.04, 0.04, -0.05, 1.70) for s in (-0.6, 0.6)]),
+c = at(sign['x'], sign['y'])
+SIGN_W, SIGN_TOP = 1.30, 1.56
+SIGN_H = SIGN_W / 1.713
+add('20_Furniture::Signs', mp.merge([mp.frame_box(c, (1, 0), (0, 1), s, s + 0.12, -0.045, 0.045, 0, 1.59) for s in (-0.655, 0.535)]),
     (120, 92, 60), 'sign posts', 'scan')
-add('20_Furniture::Signs', mp.frame_box(c, (1, 0), (0, 1), -0.66, 0.66, -0.02, 0.02, 0.45, 1.65), (28, 72, 48), 'Parks sign panel', 'scan')
+add('20_Furniture::Signs', mp.frame_box(c, (1, 0), (0, 1), -SIGN_W / 2, SIGN_W / 2, 0.045, 0.055, SIGN_TOP - SIGN_H, SIGN_TOP),
+    (38, 39, 38), 'Parks sign panel', 'scan, field photo')
+f_ = np.add(c, (0, 0.058, 0)); w_ = SIGN_W / 2   # 3 mm proud of the panel; image left is +u for someone facing the courthouse
+add('20_Furniture::Signs', (np.array([f_ + (w_, 0, SIGN_TOP), f_ + (-w_, 0, SIGN_TOP), f_ + (-w_, 0, SIGN_TOP - SIGN_H), f_ + (w_, 0, SIGN_TOP - SIGN_H)]),
+                            [[0, 2, 1], [0, 3, 2]]),
+    (255, 255, 255), 'Parks sign face', 'field photo 2026-10-28, scripts/sign_texture.py', rough=0.7,
+    uv=[[0, 0], [1, 0], [1, 1], [0, 1]], texture=D('photos', 'court_square_park_sign.jpg'))
 # DOT bus shelter location (the one inside the model area); size is the NYC standard
 shelters = [uv(float(x['longitude']), float(x['latitude'])) for x in json.load(open(D('data', 'street_bus_shelters.json')))]
 shelters = [p for p in shelters if EXTENT.contains(Point(p))]
@@ -491,6 +502,17 @@ def write_3dm(path):
         return at
 
     for o in objs:
+        if o['texture']:             # photo face: a bilinear NURBS patch, which Rhino maps by its own (u, v)
+            s = r.NurbsSurface.Create(3, False, 2, 2, 2, 2)
+            for (x, y, z), (tu, tv) in zip(o['V'].tolist(), o['uv']):
+                s.Points[int(round(tu)), int(round(1 - tv))] = r.Point4d(x, y, z, 1)   # Rhino's image origin is bottom left
+            for kn in (s.KnotsU, s.KnotsV):
+                kn[0] = 0.0; kn[1] = 1.0
+            mat = r.Material(); mat.Name = o['name']; mat.SetBitmapTexture(os.path.basename(o['texture']))   # sits next to the .3dm
+            at_ = attrs(o['layer'], o['color'], o['name'], o['src'])
+            at_.MaterialIndex = f.Materials.Add(mat); at_.MaterialSource = r.ObjectMaterialSource.MaterialFromObject
+            f.Objects.AddSurface(s, at_)
+            continue
         V, F = o['V'], o['F']
         if not o['smooth']:          # unweld so hard edges render crisp
             V = V[F].reshape(-1, 3); F = np.arange(len(V)).reshape(-1, 3)
@@ -512,11 +534,12 @@ def write_3dm(path):
 
 
 write_3dm(D('model', 'court_square_park_LOD3.3dm'))
+shutil.copyfile(D('photos', 'court_square_park_sign.jpg'), D('model', 'court_square_park_sign.jpg'))
 # buildings keep their own materials (bldg:<BIN> ...) so a viewer can fade one building at a time
 bin_of = lambda o: o['name'].split()[1] if o['name'].startswith('BIN ') else None
-groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], rough=o['rough'],
+groups = [dict(V=o['V'], F=o['F'], color=o['color'], smooth=o['smooth'], rough=o['rough'], uv=o['uv'], texture=o['texture'],
                name=(f"bldg:{bin_of(o)} " if bin_of(o) else '') + o['layer'].split('::')[-1]
-               + (' facade bands' if o['name'].endswith('floor bands') else '')) for o in objs]
+               + (' facade bands' if o['name'].endswith('floor bands') else '') + (' photo' if o['texture'] else '')) for o in objs]
 tri_all = write_glb(D('model', 'court_square_park_LOD3_preview.glb'), groups, 'court-square-park scripts/build_model.py')
 tri_web = write_glb(D('model', 'court_square_park_LOD3_web.glb'), groups, 'court-square-park scripts/build_model.py (website copy)', quantize=True)
 fade = {}
@@ -534,5 +557,6 @@ cnt = Counter(o['layer'] for o in objs)
 for k in sorted(cnt):
     print(f'{cnt[k]:5d}  {k}')
 print('objects', len(objs), '| triangles preview', tri_all, 'web', tri_web, '| bollards', len(bollards), 'spacing', round(spacing, 2))
-for fn in ('court_square_park_LOD3.3dm', 'court_square_park_LOD3_preview.glb', 'court_square_park_LOD3_web.glb', 'court_square_park_LOD3_web.buildings.json'):
+for fn in ('court_square_park_LOD3.3dm', 'court_square_park_sign.jpg', 'court_square_park_LOD3_preview.glb', 'court_square_park_LOD3_web.glb',
+           'court_square_park_LOD3_web.buildings.json'):
     print(f'{fn}: {os.path.getsize(D("model", fn)) / 1e6:.1f} MB')

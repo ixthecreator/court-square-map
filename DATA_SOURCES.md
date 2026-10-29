@@ -87,6 +87,8 @@ Bay spacing, storey heights and column sizes are estimates, so these parts sit o
 
 Lane offsets assume 3.3 m lanes and 2.4 m parking lanes. Signal pole positions and head layout are approximate.
 
+**Parks rules sign.** The sign's face is a field photo taken on 2026-10-28 from the Jackson Ave side. [`tools/scan-pipeline/sign_texture.py`](tools/scan-pipeline/sign_texture.py) straightens the panel from its four corners and removes the sky glare; the photo itself, which carries GPS, is not in the repository. The panel's width/height (1.71) comes from those corners and the camera's focal length. Its width (1.30 m) and the post tops (1.59 m) come from the scan, so the panel's height and mounting height are estimates.
+
 **Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Planting beds are drawn as groundcover, since the scan keyframes show grass and leaf litter there, with mulch rings at the park trees. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
 
 ## Week 1 field observations

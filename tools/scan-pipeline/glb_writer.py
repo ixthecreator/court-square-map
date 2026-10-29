@@ -1,4 +1,4 @@
-"""Minimal GLB 2.0 writer for coloured meshes (park frame in, glTF Y-up out: x = u, y = z, z = -v)."""
+"""Minimal GLB 2.0 writer for coloured meshes and photo-textured faces (park frame in, glTF Y-up out: x = u, y = z, z = -v)."""
 import json, struct
 import numpy as np
 
@@ -11,20 +11,26 @@ def _srgb_to_linear(c):
 def write_glb(path, groups, generator='court-square-park', quantize=False):
     """groups: iterable of dict(color=(r, g, b[, a]), V=(n,3), F=(m,3), smooth=bool, name=str, rough=float).
     Groups with the same colour, smoothness and name are merged into one primitive.
+    A group with texture=<JPEG path> and uv=(n,2) (glTF convention, 0,0 = top left of the image) is written on its own,
+    with the image embedded, float positions and one-sided.
     quantize: store positions as 16-bit integers (uniform node scale, about 4 mm steps over the site) and normals as
     8-bit, per KHR_mesh_quantization. Half the size; for web viewers, not for modelling."""
-    merged = {}
+    merged, textured = {}, []
     for g in groups:
         if len(g['F']) == 0:
             continue
+        if g.get('texture'):
+            textured.append(g)
+            continue
         key = (tuple(g['color']), bool(g.get('smooth')), g.get('name', ''), g.get('rough', 0.9))
         merged.setdefault(key, []).append((np.asarray(g['V'], float), np.asarray(g['F'], int)))
-    bin_ = bytearray(); views, accs, mats, meshes, nodes = [], [], [], [], []
+    bin_ = bytearray(); views, accs, mats, meshes, nodes, images = [], [], [], [], [], []
 
     def view(arr, target, stride=None):
         while len(bin_) % 4:
             bin_.append(0)
-        views.append(dict(buffer=0, byteOffset=len(bin_), byteLength=arr.nbytes, target=target, **({'byteStride': stride} if stride else {})))
+        views.append(dict(buffer=0, byteOffset=len(bin_), byteLength=arr.nbytes, **({'target': target} if target else {}),
+                          **({'byteStride': stride} if stride else {})))
         bin_.extend(arr.tobytes())
         return len(views) - 1
 
@@ -71,10 +77,35 @@ def write_glb(path, groups, generator='court-square-park', quantize=False):
         mats.append(dict(name=name or 'material', doubleSided=True, alphaMode='BLEND' if alpha < 1 else 'OPAQUE',
                          pbrMetallicRoughness=dict(baseColorFactor=[*(_srgb_to_linear(c) for c in color[:3]), alpha], metallicFactor=0, roughnessFactor=rough)))
         meshes.append(dict(name=name, primitives=[prim])); nodes.append(node)
+    for g in textured:
+        V, F = np.asarray(g['V'], float), np.asarray(g['F'], int)
+        fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
+        N = np.zeros_like(V)
+        for k in range(3):
+            np.add.at(N, F[:, k], fn)
+        N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-12)
+        P = np.column_stack([V[:, 0], V[:, 2], -V[:, 1]]).astype('<f4')
+        Nn = np.column_stack([N[:, 0], N[:, 2], -N[:, 1]]).astype('<f4')
+        T = np.asarray(g['uv'], '<f4')
+        a_p = len(accs); accs.append(dict(bufferView=view(P, 34962), componentType=5126, count=len(P), type='VEC3', min=P.min(0).tolist(), max=P.max(0).tolist()))
+        a_n = len(accs); accs.append(dict(bufferView=view(Nn, 34962), componentType=5126, count=len(Nn), type='VEC3'))
+        a_t = len(accs); accs.append(dict(bufferView=view(T, 34962), componentType=5126, count=len(T), type='VEC2'))
+        idx = F.astype('<u2').ravel()
+        a_i = len(accs); accs.append(dict(bufferView=view(idx, 34963), componentType=5123, count=len(idx), type='SCALAR'))
+        with open(g['texture'], 'rb') as fh:
+            images.append(dict(name=g.get('name', ''), mimeType='image/jpeg', bufferView=view(np.frombuffer(fh.read(), np.uint8), None)))
+        mats.append(dict(name=g.get('name') or 'photo', pbrMetallicRoughness=dict(baseColorTexture=dict(index=len(images) - 1),
+                                                                               metallicFactor=0, roughnessFactor=g.get('rough', 0.9))))
+        meshes.append(dict(name=g.get('name', ''), primitives=[dict(attributes=dict(POSITION=a_p, NORMAL=a_n, TEXCOORD_0=a_t), indices=a_i,
+                                                                      material=len(mats) - 1, mode=4)]))
+        nodes.append(dict(name=g.get('name', ''), mesh=len(meshes) - 1))
     while len(bin_) % 4:
         bin_.append(0)
     gltf = dict(asset=dict(version='2.0', generator=generator), scene=0, scenes=[dict(nodes=list(range(len(nodes))))], nodes=nodes,
                 meshes=meshes, materials=mats, accessors=accs, bufferViews=views, buffers=[dict(byteLength=len(bin_))])
+    if images:   # mipmapped, clamped at the edges
+        gltf.update(images=images, samplers=[dict(magFilter=9729, minFilter=9987, wrapS=33071, wrapT=33071)],
+                    textures=[dict(sampler=0, source=i) for i in range(len(images))])
     if quantize:
         gltf.update(extensionsUsed=['KHR_mesh_quantization'], extensionsRequired=['KHR_mesh_quantization'])
     js = json.dumps(gltf, separators=(',', ':')).encode(); js += b' ' * ((4 - len(js) % 4) % 4)
@@ -82,4 +113,4 @@ def write_glb(path, groups, generator='court-square-park', quantize=False):
         fh.write(struct.pack('<III', 0x46546C67, 2, 28 + len(js) + len(bin_)))
         fh.write(struct.pack('<II', len(js), 0x4E4F534A)); fh.write(js)
         fh.write(struct.pack('<II', len(bin_), 0x004E4942)); fh.write(bin_)
-    return sum(len(F) for parts in merged.values() for _, F in parts)
+    return sum(len(F) for parts in merged.values() for _, F in parts) + sum(len(g['F']) for g in textured)
