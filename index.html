@@ -2702,7 +2702,8 @@ function createCityScene({ canvas, data, detail = null, onChange = function () {
       siteModelPhase = &#x27;error&#x27;; siteModelCard(&#x27;Site model unavailable&#x27;, &#x27;The model could not be loaded. Check the connection and open Model again.&#x27;);
     });
     // Buildings between the camera and the view turn see-through. Each building has its own materials (bldg:&lt;BIN&gt; ...)
-    // and a footprint prism in the buildings file; sight lines run from the camera to the target and four points around it.
+    // and a footprint prism in the buildings file; sight lines run from the camera to a 5 x 5 grid of points within 24 m
+    // of the target, which covers the whole park from the default target.
     const SITE_FADE_ALPHA = 0.12, SITE_FADE_DETAIL = 0.03, SITE_FADE_STEP = 0.12;   // facade detail fades further, so the view stays clear
     let siteBldgs = null, siteFadeFrame = 0;
     const siteBldgMats = new Map(), siteFadeAlpha = new Map(), siteFadeWant = new Map();
@@ -2757,7 +2758,8 @@ function createCityScene({ canvas, data, detail = null, onChange = function () {
       const o = siteModel.getCameraOrbit(), t = siteModel.getCameraTarget();
       const cam = [t.x + o.radius * Math.sin(o.phi) * Math.sin(o.theta), t.y + o.radius * Math.cos(o.phi), t.z + o.radius * Math.sin(o.phi) * Math.cos(o.theta)];
       const y = Math.max(t.y, 1.5);
-      const aims = [[t.x, y, t.z], [t.x + 12, y, t.z], [t.x - 12, y, t.z], [t.x, y, t.z + 12], [t.x, y, t.z - 12]]
+      const SITE_FADE_GRID = [-24, -12, 0, 12, 24];
+      const aims = SITE_FADE_GRID.flatMap(dx =&gt; SITE_FADE_GRID.map(dz =&gt; [t.x + dx, y, t.z + dz]))
         .filter(a =&gt; !Object.values(siteBldgs).some(b =&gt; siteInside(a, b)))
         .map(a =&gt; {                          // stop each sight line 1.5 m short of its point
           const d = Math.hypot(a[0] - cam[0], a[1] - cam[1], a[2] - cam[2]) || 1, k = Math.max(0, 1 - 1.5 / d);
