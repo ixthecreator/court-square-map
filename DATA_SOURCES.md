@@ -89,6 +89,22 @@ Lane offsets assume 3.3 m lanes and 2.4 m parking lanes. Signal pole positions a
 
 **Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Planting beds are drawn as groundcover, since the scan keyframes show grass and leaf litter there, with mulch rings at the park trees. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
 
+## Week 1 field observations
+
+**Source.** The Week 1 observational research brief for Court Square Park (*Passing & pausing*):
+- study area: the NE Jackson Avenue entrance, the adjacent seating and a short path, about 20–30 m
+- counts: Friday to Sunday, 4:00–4:20 pm, five snapshots a day, each person counted once per snapshot as moving, standing or seated
+- weather at 4 pm, from the brief
+
+The dates come from the brief's weather slide, whose temperatures label the counts. The counts are means per snapshot; the brief gives one full record (Friday 4:05 pm).
+
+**Positions.** No GPS was recorded, so each counted person is placed by `tools/scan-pipeline/observations.py`:
+- moving: along the entry path, the ring path and the Jackson Avenue sidewalk, in proportions 50 / 30 / 20
+- standing: at the entrance edge
+- seated: on seats 0.8 m apart on the World's Fair and bistro benches nearest the entrance, in pairs and singles
+
+Points keep at least 0.7 m apart, and the random seed is fixed. Moving headings lean toward the station corner on Friday (70%) and split evenly on the weekend. The places (vantage point, first-look stations, the bench, leverage points) follow the brief's schematic. All of these positions are fitted, not observed.
+
 Google Maps, Apple Maps and game interfaces informed the visual direction. Geographic geometry comes from the NYC datasets above; no Google or Apple map geometry is included.
 
 The snapshot is not a current-condition field survey. Refer to the original publishers for data definitions, updates and applicable terms.

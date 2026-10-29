@@ -14,9 +14,10 @@ A fullscreen, interactive map of Long Island City, a 3D field-scan viewer and a 
 - Select the red park or **Scan** to open the field scan. On a desktop-sized window it downloads automatically (150 MB). On phones, narrow windows or with Data Saver on, select **Load field scan**.
 - **Symmetric fill** shows or hides the parts of the oval that were mirrored from the scanned side (see below).
 - Select **Model** for the LOD3 site model built from the scan and NYC data (5 MB, loaded the first time you open it). A building that stands between the camera and the view turns see-through until you move past it. Drag to orbit, scroll or use + / − to zoom; the orientation button returns to the default view. The Rhino 8 file is in [`data/modeling/`](data/modeling/).
+- The radar button (Map and Model) shows the **Week 1 field observations** as 3D points in the study area at the NE Jackson Avenue entrance: one marker per person counted (▲ moving, ◇ standing, ■ seated) plus the places from the brief (vantage point, first-look stations, the bench, leverage points). In the **OBS-LOG** panel, **Stack** lifts Friday, Saturday and Sunday onto their own levels, so time runs upward. **Ground** shows one day at a time, with ◀ ▶ and **Play** to step through them. **Focus** flies to the study area. Select a point, a place or a day for its record. Zoomed out, the red **OBS** tag on the map opens the study area.
 - Use the pin button to add an observation inside the park. In the scan, choose **Add note** and click a surface; notes on the field scan show latitude, longitude and height above grade.
 
-Camera preferences, height settings, the symmetric-fill choice and up to 12 observation drafts are kept in this browser's local storage for the site. Clearing site data removes them.
+Camera preferences, height settings, the symmetric-fill choice, the observation layer's view and up to 12 observation drafts are kept in this browser's local storage for the site. Clearing site data removes them.
 
 ## Field scan
 
@@ -34,6 +35,24 @@ The model has two materials:
 
 - `scan` holds the observed surfaces.
 - `inferred` holds the oval ring mirrored across its symmetry axis (x ≈ 31.7 m, aligned with the courthouse entrance) wherever the scan did not reach, plus a flat fill for the unscanned lawn interior. Only the oval is mirrored. The rest of the park is not symmetric (the oval sits toward Thomson Avenue, with game tables to the west and the bistro area to the east), so it is shown as scanned.
+
+## Week 1 observations
+
+From the Week 1 observational research brief (*Passing & pausing*): the same spot, the same 20 minutes (4:00–4:20 pm, five snapshots) on Friday 16, Saturday 17 and Sunday 18 October 2026. Each person in the study area was counted once per snapshot as moving, standing or seated.
+
+| Day | Weather at 4 pm | Moving | Standing | Seated (mean per snapshot) |
+|---|---|---|---|---|
+| Fri 16 Oct | 74°F, sunny | 12 | 2.4 | 6 |
+| Sat 17 Oct | 52°F, overcast and windy | 7 | 1.6 | 2.4 |
+| Sun 18 Oct | 57°F, clear and calm | 6.5 | 2.6 | 5.5 |
+
+Friday's 4:05 pm record: 12 moving, 2 standing, 6 seated; hurried, idle. The map shows each mean rounded to whole people (47 points).
+
+No GPS was recorded, so the positions are fitted, not observed. [`tools/scan-pipeline/observations.py`](tools/scan-pipeline/observations.py) places moving people along the entry path, the ring path and the Jackson Avenue sidewalk, with Friday leaning toward the station corner. Standing people go at the entrance edge and seated people on the nearest bench seats. The script is seeded, so it gives the same points on every run. It reads [`data/observations/counts.csv`](data/observations/counts.csv) and [`places.csv`](data/observations/places.csv), writes [`data/observations.json`](data/observations.json) and, with `--embed`, puts that file into `index.html`. To show new counts, edit the CSV and run:
+
+```sh
+python3 tools/scan-pipeline/observations.py --embed
+```
 
 ## Import a scan
 
@@ -64,7 +83,7 @@ The embedded data snapshot contains **3,699 building footprints** and **1,213 st
 |---|---|
 | `index.html` | The whole site: map, scan viewer, model viewer and embedded city data |
 | `scan/` | Field-scan GLB parts and manifest |
-| `data/` | Park layer, scan georeference, modeling kit |
+| `data/` | Park layer, scan georeference, Week 1 observations, modeling kit |
 | `docs/` | As-built plan image |
 | `tools/split_scan.py` | Splits a GLB into parts and writes `scan/manifest.json` |
 | `tools/scan-pipeline/` | Scripts that turn the raw LiDAR export into the registered mesh, plans and data (see its `run_all.sh`) |

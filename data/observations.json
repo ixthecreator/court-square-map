@@ -1,0 +1,784 @@
+{
+ "meta": {
+  "title": "Passing & pausing",
+  "source": "Week 1 Observational Research (Court_Square_Research.pdf, pp. 5-12)",
+  "window": "4:00-4:20 pm, five snapshots a day",
+  "counts": "mean people per snapshot; points are the means rounded",
+  "positions": "fitted by category into the study area; no GPS was recorded",
+  "bearing_u_deg": 62.4
+ },
+ "area": {
+  "uv": [
+   [
+    31,
+    24
+   ],
+   [
+    50.5,
+    24
+   ],
+   [
+    53,
+    26.5
+   ],
+   [
+    53,
+    45
+   ],
+   [
+    33.5,
+    45
+   ],
+   [
+    31,
+    42.5
+   ]
+  ],
+  "ll": [
+   [
+    -73.94340719,
+    40.74641241
+   ],
+   [
+    -73.94320258,
+    40.74649376
+   ],
+   [
+    -73.94319006,
+    40.74652415
+   ],
+   [
+    -73.94329154,
+    40.74667178
+   ],
+   [
+    -73.94349615,
+    40.74659043
+   ],
+   [
+    -73.94350867,
+    40.74656005
+   ]
+  ],
+  "centre": [
+   42,
+   34.5
+  ]
+ },
+ "days": [
+  {
+   "day": "Fri",
+   "date": "2026-10-16",
+   "question": "A route?",
+   "temp_f": 74,
+   "feels_f": 76,
+   "wind_mph": 9,
+   "sky": "Sunny",
+   "note": "Light rain until early afternoon",
+   "mean": {
+    "moving": 12.0,
+    "standing": 2.4,
+    "seated": 6.0
+   },
+   "points": {
+    "moving": 12,
+    "standing": 2,
+    "seated": 6
+   },
+   "record": {
+    "time": "4:05 pm",
+    "moving": 12,
+    "standing": 2,
+    "seated": 6,
+    "behavior": "hurried, idle"
+   }
+  },
+  {
+   "day": "Sat",
+   "date": "2026-10-17",
+   "question": "A destination?",
+   "temp_f": 52,
+   "feels_f": 44,
+   "wind_mph": 9,
+   "sky": "Overcast and windy",
+   "note": "22°F colder than Friday",
+   "mean": {
+    "moving": 7.0,
+    "standing": 1.6,
+    "seated": 2.4
+   },
+   "points": {
+    "moving": 7,
+    "standing": 2,
+    "seated": 2
+   },
+   "record": null
+  },
+  {
+   "day": "Sun",
+   "date": "2026-10-18",
+   "question": "A resting place?",
+   "temp_f": 57,
+   "feels_f": 53,
+   "wind_mph": 1,
+   "sky": "Clear and calm",
+   "note": "After a 38°F morning low",
+   "mean": {
+    "moving": 6.5,
+    "standing": 2.6,
+    "seated": 5.5
+   },
+   "points": {
+    "moving": 7,
+    "standing": 3,
+    "seated": 6
+   },
+   "record": null
+  }
+ ],
+ "people": [
+  {
+   "id": "fri-mov01",
+   "day": 0,
+   "cat": "moving",
+   "u": 40.2,
+   "v": 36.53,
+   "a": -103.4,
+   "brg": 165.8,
+   "lon": -73.94337942,
+   "lat": 40.74655076,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov02",
+   "day": 0,
+   "cat": "moving",
+   "u": 39.04,
+   "v": 40.4,
+   "a": 101.8,
+   "brg": 320.6,
+   "lon": -73.94341284,
+   "lat": 40.74657681,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov03",
+   "day": 0,
+   "cat": "moving",
+   "u": 40.33,
+   "v": 35.54,
+   "a": -103.4,
+   "brg": 165.8,
+   "lon": -73.94337254,
+   "lat": 40.74654342,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov04",
+   "day": 0,
+   "cat": "moving",
+   "u": 40.4,
+   "v": 40.13,
+   "a": 101.8,
+   "brg": 320.6,
+   "lon": -73.94339703,
+   "lat": 40.74658039,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov05",
+   "day": 0,
+   "cat": "moving",
+   "u": 40.31,
+   "v": 37.4,
+   "a": 82.0,
+   "brg": 340.4,
+   "lon": -73.94338302,
+   "lat": 40.74655819,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov06",
+   "day": 0,
+   "cat": "moving",
+   "u": 39.39,
+   "v": 36.06,
+   "a": 76.6,
+   "brg": 345.8,
+   "lon": -73.94338527,
+   "lat": 40.74654368,
+   "at": "entry path"
+  },
+  {
+   "id": "fri-mov07",
+   "day": 0,
+   "cat": "moving",
+   "u": 33.71,
+   "v": 35.29,
+   "a": -10.1,
+   "brg": 72.5,
+   "lon": -73.94344066,
+   "lat": 40.74651385,
+   "at": "ring path"
+  },
+  {
+   "id": "fri-mov08",
+   "day": 0,
+   "cat": "moving",
+   "u": 42.81,
+   "v": 26.34,
+   "a": -73.2,
+   "brg": 135.6,
+   "lon": -73.94329603,
+   "lat": 40.74648035,
+   "at": "ring path"
+  },
+  {
+   "id": "fri-mov09",
+   "day": 0,
+   "cat": "moving",
+   "u": 36.74,
+   "v": 34.45,
+   "a": -23.8,
+   "brg": 86.2,
+   "lon": -73.94340426,
+   "lat": 40.74651978,
+   "at": "ring path"
+  },
+  {
+   "id": "fri-mov10",
+   "day": 0,
+   "cat": "moving",
+   "u": 34.72,
+   "v": 34.06,
+   "a": -15.8,
+   "brg": 78.2,
+   "lon": -73.94342327,
+   "lat": 40.74650821,
+   "at": "ring path"
+  },
+  {
+   "id": "fri-mov11",
+   "day": 0,
+   "cat": "moving",
+   "u": 43.8,
+   "v": 42.33,
+   "a": 12.7,
+   "brg": 49.7,
+   "lon": -73.94337339,
+   "lat": 40.74661213,
+   "at": "Jackson Ave sidewalk"
+  },
+  {
+   "id": "fri-mov12",
+   "day": 0,
+   "cat": "moving",
+   "u": 47.11,
+   "v": 42.79,
+   "a": -166.0,
+   "brg": 228.4,
+   "lon": -73.94334123,
+   "lat": 40.74662953,
+   "at": "Jackson Ave sidewalk"
+  },
+  {
+   "id": "fri-sta01",
+   "day": 0,
+   "cat": "standing",
+   "u": 41.47,
+   "v": 40.29,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.94338666,
+   "lat": 40.74658612,
+   "at": "entrance edge"
+  },
+  {
+   "id": "fri-sta02",
+   "day": 0,
+   "cat": "standing",
+   "u": 37.76,
+   "v": 40.28,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.9434256,
+   "lat": 40.74657056,
+   "at": "entrance edge"
+  },
+  {
+   "id": "fri-sea01",
+   "day": 0,
+   "cat": "seated",
+   "u": 41.56,
+   "v": 32.17,
+   "a": 123.9,
+   "brg": 298.5,
+   "lon": -73.94334122,
+   "lat": 40.74652162,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "fri-sea02",
+   "day": 0,
+   "cat": "seated",
+   "u": 41.11,
+   "v": 32.83,
+   "a": 123.9,
+   "brg": 298.5,
+   "lon": -73.94334954,
+   "lat": 40.74652506,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "fri-sea03",
+   "day": 0,
+   "cat": "seated",
+   "u": 42.39,
+   "v": 30.28,
+   "a": 116.5,
+   "brg": 305.9,
+   "lon": -73.94332212,
+   "lat": 40.74651005,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "fri-sea04",
+   "day": 0,
+   "cat": "seated",
+   "u": 43.86,
+   "v": 27.03,
+   "a": 116.8,
+   "brg": 305.6,
+   "lon": -73.94328884,
+   "lat": 40.74649021,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "fri-sea05",
+   "day": 0,
+   "cat": "seated",
+   "u": 43.5,
+   "v": 27.74,
+   "a": 116.8,
+   "brg": 305.6,
+   "lon": -73.94329654,
+   "lat": 40.74649441,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "fri-sea06",
+   "day": 0,
+   "cat": "seated",
+   "u": 46.45,
+   "v": 25.62,
+   "a": 179.9,
+   "brg": 242.5,
+   "lon": -73.94325396,
+   "lat": 40.7464898,
+   "at": "bistro bench"
+  },
+  {
+   "id": "sat-mov01",
+   "day": 1,
+   "cat": "moving",
+   "u": 40.06,
+   "v": 37.26,
+   "a": -102.6,
+   "brg": 165.0,
+   "lon": -73.94338489,
+   "lat": 40.74655597,
+   "at": "entry path"
+  },
+  {
+   "id": "sat-mov02",
+   "day": 1,
+   "cat": "moving",
+   "u": 39.22,
+   "v": 39.33,
+   "a": 101.8,
+   "brg": 320.6,
+   "lon": -73.94340495,
+   "lat": 40.74656902,
+   "at": "entry path"
+  },
+  {
+   "id": "sat-mov03",
+   "day": 1,
+   "cat": "moving",
+   "u": 39.48,
+   "v": 40.13,
+   "a": -78.2,
+   "brg": 140.6,
+   "lon": -73.94340667,
+   "lat": 40.74657652,
+   "at": "entry path"
+  },
+  {
+   "id": "sat-mov04",
+   "day": 1,
+   "cat": "moving",
+   "u": 39.23,
+   "v": 36.09,
+   "a": 76.6,
+   "brg": 345.8,
+   "lon": -73.94338719,
+   "lat": 40.74654323,
+   "at": "entry path"
+  },
+  {
+   "id": "sat-mov05",
+   "day": 1,
+   "cat": "moving",
+   "u": 34.42,
+   "v": 34.22,
+   "a": 165.9,
+   "brg": 256.5,
+   "lon": -73.94342738,
+   "lat": 40.74650828,
+   "at": "ring path"
+  },
+  {
+   "id": "sat-mov06",
+   "day": 1,
+   "cat": "moving",
+   "u": 42.54,
+   "v": 26.87,
+   "a": 109.7,
+   "brg": 312.7,
+   "lon": -73.94330189,
+   "lat": 40.74648346,
+   "at": "ring path"
+  },
+  {
+   "id": "sat-mov07",
+   "day": 1,
+   "cat": "moving",
+   "u": 41.88,
+   "v": 41.84,
+   "a": 5.2,
+   "brg": 57.2,
+   "lon": -73.94339094,
+   "lat": 40.74660016,
+   "at": "Jackson Ave sidewalk"
+  },
+  {
+   "id": "sat-sta01",
+   "day": 1,
+   "cat": "standing",
+   "u": 41.3,
+   "v": 40.34,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.94338875,
+   "lat": 40.74658576,
+   "at": "entrance edge"
+  },
+  {
+   "id": "sat-sta02",
+   "day": 1,
+   "cat": "standing",
+   "u": 37.79,
+   "v": 39.89,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.94342312,
+   "lat": 40.74656759,
+   "at": "entrance edge"
+  },
+  {
+   "id": "sat-sea01",
+   "day": 1,
+   "cat": "seated",
+   "u": 41.11,
+   "v": 32.83,
+   "a": 123.9,
+   "brg": 298.5,
+   "lon": -73.94334954,
+   "lat": 40.74652506,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sat-sea02",
+   "day": 1,
+   "cat": "seated",
+   "u": 42.39,
+   "v": 30.28,
+   "a": 116.5,
+   "brg": 305.9,
+   "lon": -73.94332212,
+   "lat": 40.74651005,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-mov01",
+   "day": 2,
+   "cat": "moving",
+   "u": 39.41,
+   "v": 36.3,
+   "a": 76.6,
+   "brg": 345.8,
+   "lon": -73.94338648,
+   "lat": 40.74654566,
+   "at": "entry path"
+  },
+  {
+   "id": "sun-mov02",
+   "day": 2,
+   "cat": "moving",
+   "u": 39.16,
+   "v": 39.86,
+   "a": -78.2,
+   "brg": 140.6,
+   "lon": -73.94340853,
+   "lat": 40.74657304,
+   "at": "entry path"
+  },
+  {
+   "id": "sun-mov03",
+   "day": 2,
+   "cat": "moving",
+   "u": 40.82,
+   "v": 38.43,
+   "a": 101.8,
+   "brg": 320.6,
+   "lon": -73.94338327,
+   "lat": 40.74656858,
+   "at": "entry path"
+  },
+  {
+   "id": "sun-mov04",
+   "day": 2,
+   "cat": "moving",
+   "u": 39.47,
+   "v": 40.85,
+   "a": -78.2,
+   "brg": 140.6,
+   "lon": -73.94341075,
+   "lat": 40.74658223,
+   "at": "entry path"
+  },
+  {
+   "id": "sun-mov05",
+   "day": 2,
+   "cat": "moving",
+   "u": 35.64,
+   "v": 34.4,
+   "a": 160.7,
+   "brg": 261.7,
+   "lon": -73.9434155,
+   "lat": 40.74651476,
+   "at": "ring path"
+  },
+  {
+   "id": "sun-mov06",
+   "day": 2,
+   "cat": "moving",
+   "u": 38.34,
+   "v": 32.44,
+   "a": 145.1,
+   "brg": 277.3,
+   "lon": -73.94337651,
+   "lat": 40.74651037,
+   "at": "ring path"
+  },
+  {
+   "id": "sun-mov07",
+   "day": 2,
+   "cat": "moving",
+   "u": 37.28,
+   "v": 41.96,
+   "a": 0.5,
+   "brg": 61.9,
+   "lon": -73.94343984,
+   "lat": 40.74658189,
+   "at": "Jackson Ave sidewalk"
+  },
+  {
+   "id": "sun-sta01",
+   "day": 2,
+   "cat": "standing",
+   "u": 40.8,
+   "v": 40.7,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.94339601,
+   "lat": 40.74658657,
+   "at": "entrance edge"
+  },
+  {
+   "id": "sun-sta02",
+   "day": 2,
+   "cat": "standing",
+   "u": 37.37,
+   "v": 40.47,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.9434307,
+   "lat": 40.74657043,
+   "at": "entrance edge"
+  },
+  {
+   "id": "sun-sta03",
+   "day": 2,
+   "cat": "standing",
+   "u": 41.5,
+   "v": 39.97,
+   "a": -90.0,
+   "brg": 152.4,
+   "lon": -73.94338462,
+   "lat": 40.74658363,
+   "at": "entrance edge"
+  },
+  {
+   "id": "sun-sea01",
+   "day": 2,
+   "cat": "seated",
+   "u": 41.56,
+   "v": 32.17,
+   "a": 123.9,
+   "brg": 298.5,
+   "lon": -73.94334122,
+   "lat": 40.74652162,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-sea02",
+   "day": 2,
+   "cat": "seated",
+   "u": 41.11,
+   "v": 32.83,
+   "a": 123.9,
+   "brg": 298.5,
+   "lon": -73.94334954,
+   "lat": 40.74652506,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-sea03",
+   "day": 2,
+   "cat": "seated",
+   "u": 42.39,
+   "v": 30.28,
+   "a": 116.5,
+   "brg": 305.9,
+   "lon": -73.94332212,
+   "lat": 40.74651005,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-sea04",
+   "day": 2,
+   "cat": "seated",
+   "u": 43.86,
+   "v": 27.03,
+   "a": 116.8,
+   "brg": 305.6,
+   "lon": -73.94328884,
+   "lat": 40.74649021,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-sea05",
+   "day": 2,
+   "cat": "seated",
+   "u": 43.5,
+   "v": 27.74,
+   "a": 116.8,
+   "brg": 305.6,
+   "lon": -73.94329654,
+   "lat": 40.74649441,
+   "at": "World's Fair bench"
+  },
+  {
+   "id": "sun-sea06",
+   "day": 2,
+   "cat": "seated",
+   "u": 46.45,
+   "v": 25.62,
+   "a": 179.9,
+   "brg": 242.5,
+   "lon": -73.94325396,
+   "lat": 40.7464898,
+   "at": "bistro bench"
+  }
+ ],
+ "places": [
+  {
+   "id": "S1",
+   "kind": "station",
+   "title": "Senses",
+   "note": "My vantage point. Ten to fifteen minutes still: traffic sound, warmth, smell, surfaces.",
+   "u": 36.0,
+   "v": 34.1,
+   "z": 1.6,
+   "lon": -73.94341013,
+   "lat": 40.74651387
+  },
+  {
+   "id": "S2",
+   "kind": "station",
+   "title": "Who shares it",
+   "note": "People, dogs, pigeons, plantings: who claims the benches?",
+   "u": 40.3,
+   "v": 30.6,
+   "z": 1.6,
+   "lon": -73.94334581,
+   "lat": 40.74650388
+  },
+  {
+   "id": "S3",
+   "kind": "station",
+   "title": "How I arrive",
+   "note": "The route in from Jackson Ave; Court Sq–23 St station (7 E G) is steps away.",
+   "u": 48.6,
+   "v": 43.4,
+   "z": 1.6,
+   "lon": -73.94332893,
+   "lat": 40.74664066
+  },
+  {
+   "id": "S4",
+   "kind": "station",
+   "title": "One object",
+   "note": "The new bench: tan slats (wood or recycled plastic?), black cast-metal frame with an X-braced back, curled armrests at the ends only, bolted to the new concrete paving.",
+   "u": 41.11,
+   "v": 32.83,
+   "z": 1.0,
+   "lon": -73.94334954,
+   "lat": 40.74652506
+  },
+  {
+   "id": "L1",
+   "kind": "leverage",
+   "title": "Bench position",
+   "note": "Are some benches used far more than others? Record occupancy per bench, its orientation, distance from the path.",
+   "u": 43.5,
+   "v": 27.74,
+   "z": 1.0,
+   "lon": -73.94329654,
+   "lat": 40.74649441
+  },
+  {
+   "id": "L2",
+   "kind": "leverage",
+   "title": "Sun and shade",
+   "note": "Does seating follow the shade? Record sun or shade on each bench at each snapshot.",
+   "u": 42.75,
+   "v": 28.68,
+   "z": 3.2,
+   "lon": -73.94330957,
+   "lat": 40.74649878
+  },
+  {
+   "id": "L3",
+   "kind": "leverage",
+   "title": "Entrance edge",
+   "note": "Where do passing and pausing collide? Record where people stop, and how others route around them.",
+   "u": 39.3,
+   "v": 40.4,
+   "z": 1.6,
+   "lon": -73.94341006,
+   "lat": 40.74657791
+  }
+ ]
+}
