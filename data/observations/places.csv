@@ -1,0 +1,8 @@
+id,kind,title,note,u,v,z
+S1,station,Senses,"My vantage point. Ten to fifteen minutes still: traffic sound, warmth, smell, surfaces.",36.0,34.1,1.6
+S2,station,Who shares it,"People, dogs, pigeons, plantings: who claims the benches?",40.3,30.6,1.6
+S3,station,How I arrive,The route in from Jackson Ave; Court Sq–23 St station (7 E G) is steps away.,48.6,43.4,1.6
+S4,station,One object,"The new bench: tan slats (wood or recycled plastic?), black cast-metal frame with an X-braced back, curled armrests at the ends only, bolted to the new concrete paving.",41.11,32.83,1.0
+L1,leverage,Bench position,"Are some benches used far more than others? Record occupancy per bench, its orientation, distance from the path.",43.5,27.74,1.0
+L2,leverage,Sun and shade,Does seating follow the shade? Record sun or shade on each bench at each snapshot.,42.75,28.68,3.2
+L3,leverage,Entrance edge,"Where do passing and pausing collide? Record where people stop, and how others route around them.",39.3,40.4,1.6

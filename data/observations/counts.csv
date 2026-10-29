@@ -1,0 +1,4 @@
+day,date,question,temp_f,feels_f,wind_mph,sky,weather_note,moving,standing,seated,record_time,record_moving,record_standing,record_seated,behavior
+Fri,2026-10-16,A route?,74,76,9,Sunny,Light rain until early afternoon,12,2.4,6,4:05 pm,12,2,6,"hurried, idle"
+Sat,2026-10-17,A destination?,52,44,9,Overcast and windy,22°F colder than Friday,7,1.6,2.4,,,,,
+Sun,2026-10-18,A resting place?,57,53,1,Clear and calm,After a 38°F morning low,6.5,2.6,5.5,,,,,
