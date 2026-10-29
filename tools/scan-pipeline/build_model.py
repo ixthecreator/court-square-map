@@ -12,6 +12,8 @@ z up, z = 0 at park grade (NAVD88 5.28 m).
 - buildings: NYC 3D Building Model (2014 survey, LOD1/2 hybrid) where the building predates 2015, otherwise the current
   footprint extruded to its recorded roof height (glass, with floor bands)
 - the courthouse facade, entrance and roofs at LOD3 from photos on top of its survey massing (scripts/courthouse.py)
+- street detail from NYC open data (scripts/streets.py): crosswalks between facing curb ramps, lane markings from the
+  street centerline, signals, street lights on registered city poles, DSNY litter baskets, parking meters
 
 Usage: python scripts/build_model.py   (needs rhino3dm, shapely, mapbox_earcut, scipy, pyogrio, pyproj)
 Writes model/court_square_park_LOD3.3dm, model/court_square_park_LOD3_preview.glb,
@@ -32,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parkframe import ROOT, polygons_uv, uv, NORTH, EAST, ORIGIN_LL
 import model_parts as mp
 import courthouse
+import streets
 from glb_writer import write_glb
 
 D = lambda *p: os.path.join(ROOT, *p)
@@ -272,7 +275,10 @@ c = at(sign['x'], sign['y'], 0.05)
 add('20_Furniture::Signs', mp.merge([mp.frame_box(c, (1, 0), (0, 1), s - 0.04, s + 0.04, -0.04, 0.04, -0.05, 1.70) for s in (-0.6, 0.6)]),
     (120, 92, 60), 'sign posts', 'scan')
 add('20_Furniture::Signs', mp.frame_box(c, (1, 0), (0, 1), -0.66, 0.66, -0.02, 0.02, 0.45, 1.65), (28, 72, 48), 'Parks sign panel', 'scan')
-cshel = at(48.3, 42.3)
+# DOT bus shelter location (the one inside the model area); size is the NYC standard
+shelters = [uv(float(x['longitude']), float(x['latitude'])) for x in json.load(open(D('data', 'street_bus_shelters.json')))]
+shelters = [p for p in shelters if EXTENT.contains(Point(p))]
+cshel = at(*min(shelters, key=lambda p: math.dist(p, (48.3, 42.3)))) if shelters else at(48.3, 42.3)
 shelter = [mp.frame_box(cshel, (1, 0), (0, 1), -2.1, 2.1, -0.82, 0.82, 2.45, 2.58)]
 shelter += [mp.frame_box(cshel, (1, 0), (0, 1), s, s + 0.07, d, d + 0.07, 0, 2.45) for s in (-2.1, 2.03) for d in (-0.82, 0.75)]
 add('20_Furniture::Bus shelter (approx)', mp.merge(shelter), (60, 62, 64), 'shelter frame', 'NYC standard size, approx')
@@ -280,6 +286,12 @@ glass = [mp.frame_box(cshel, (1, 0), (0, 1), -2.03, 2.03, 0.76, 0.785, 0.15, 2.4
         [mp.frame_box(cshel, (1, 0), (0, 1), s, s + 0.025, -0.75, 0.75, 0.15, 2.42) for s in (-2.08, 2.055)]
 add('20_Furniture::Bus shelter (approx)', mp.merge(glass), (180, 205, 220, 110), 'shelter glass')
 add('20_Furniture::Spray pad', mp.revolve([(0.25, 0.0), (0.25, 0.012), (0.0, 0.012)], at(axis_u, pcy, -0.02), 24), (60, 62, 66), 'drain', 'scan', smooth=True)
+
+# ------------------------------------------------------------------ streets
+street_parts, street_stats = streets.build(D('data'), uv, T, EXTENT, roadbed, medians, unary_union([sidewalks, curb_band, edge_band, pits, forecourt]))
+for layer, nm, col, vf, smooth, src in street_parts:
+    add(layer, vf, col, nm, src, smooth=smooth)
+print('streets:', street_stats)
 
 # ------------------------------------------------------------------ trees
 for i, t in enumerate(trees):
@@ -445,7 +457,7 @@ for text, x, y in [('Central lawn', *lawn_c), ('Spray pad', axis_u, 8.2), ('Game
     dots.append(dict(layer='90_Annotation', text=text, x=x, y=y, z=Tp(x, y) + 1.5))
 
 LAYERS = {'00_Reference': (90, 90, 90), '10_Ground': (150, 150, 150), '20_Furniture': (60, 60, 60), '30_Trees': (70, 120, 60),
-          '40_Buildings': (200, 200, 205), '90_Annotation': (0, 0, 0)}
+          '40_Buildings': (200, 200, 205), '50_Street': (120, 120, 120), '90_Annotation': (0, 0, 0)}
 for o in objs:
     LAYERS.setdefault(o['layer'], o['color'][:3])
 for c_ in curves + dots:

@@ -19,6 +19,16 @@ done
 # current footprints (with construction year) and ground spot elevations for the detailed model
 curl -s -o buildings2.geojson "$API/5zhs-2jue.geojson?\$where=$AREA&\$limit=5000"
 curl -s -o plan2_elevation_points.geojson "$API/9uxf-ng6q.geojson?\$where=$AREA&\$limit=5000"
+# street detail: curb ramps, centerlines, signalised intersections, city poles, litter baskets, meters, bus shelters
+q() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$1"; }
+BOX='40.7492,-73.9478,40.7438,-73.9392'
+curl -s -o street_ramps.geojson "$API/ufzp-rrqu.geojson?\$where=$(q "within_box(the_geom,$BOX)")&\$limit=2000"
+curl -s -o street_centerlines.geojson "$API/inkn-q76z.geojson?\$where=$AREA&\$limit=5000"
+curl -s -o street_lpi.json "$API/xc4v-ntf4.json?\$where=$(q "within_box(the_geom,$BOX)")&\$limit=500"
+curl -s -o street_meters.json "$API/693u-uax6.json?\$where=$(q "within_box(location,$BOX)")&\$limit=5000"
+curl -s -o street_litter_baskets.json "$API/8znf-7b2c.json?\$where=$(q "latitude between 40.7438 and 40.7492 and longitude between -73.9478 and -73.9392")&\$limit=2000"
+curl -s -o street_poles.json "$API/tbgj-tdd6.json?\$where=$(q "zipcode='11101'")&\$limit=5000"
+curl -s -o street_bus_shelters.json "$API/t4f2-8md7.json?\$where=$(q "boro_cd='402'")&\$limit=5000"
 # NYC 3D Building Model, delivery area 10 only (fetched by byte range from the city-wide zip)
 python3 -I "$HERE/fetch_nyc3d.py" nyc3d DA10
 ls -la
