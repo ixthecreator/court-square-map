@@ -7,11 +7,15 @@ Snapshot retrieved **October 28, 2026**. Coordinates use WGS84 longitude and lat
 | Dataset | Used for |
 | --- | --- |
 | [NYC BUILDING, Office of Technology and Innovation](https://data.cityofnewyork.us/City-Government/BUILDING/5zhs-2jue) | Building footprints and roof heights |
-| [NYC Centerline / CSCL](https://data.cityofnewyork.us/City-Government/Centerline/inkn-q76z) | Street geometry and recorded paved widths |
+| [NYC Centerline / CSCL](https://data.cityofnewyork.us/City-Government/Centerline/inkn-q76z) | Street geometry and recorded paved widths; lane markings in the site model |
 | [NYC Parks Properties](https://data.cityofnewyork.us/Recreation/Parks-Properties/enfh-gkve) | Court Square Park, property Q267 |
 | [2020 Neighborhood Tabulation Areas, NYC Department of City Planning, version 26b](https://data.cityofnewyork.us/City-Government/2020-Neighborhood-Tabulation-Areas-NTAs-/9nt8-h7nd) | Study-area boundary |
 | [Forestry Tree Points, NYC Parks](https://data.cityofnewyork.us/Environment/Forestry-Tree-Points/hn5i-inap) | Trees in and around the park (species, DBH) |
 | [NYC Planimetric Database](https://data.cityofnewyork.us/browse?q=planimetric): Curbs, Sidewalk, Roadbed, Median, Elevation Points | Scan registration, terrain and the modeling kit |
+| [Pedestrian Ramp Locations, DOT](https://data.cityofnewyork.us/d/ufzp-rrqu) | Crosswalks in the site model |
+| [VZV Leading Pedestrian Interval Signals, DOT](https://data.cityofnewyork.us/d/xc4v-ntf4) | Signalised intersections |
+| [Mobile Telecommunications Franchise Pole Reservation Locations, OTI](https://data.cityofnewyork.us/d/tbgj-tdd6) | City light poles |
+| [DSNY Litter Basket Inventory](https://data.cityofnewyork.us/d/8znf-7b2c), [Parking Meters Locations and Status, DOT](https://data.cityofnewyork.us/d/693u-uax6), [Bus Stop Shelters, DOT](https://data.cityofnewyork.us/d/t4f2-8md7) | Street furniture |
 | [NYC 3D Building Model, Office of Technology and Innovation](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_3DBuildingModel.md) (2014 survey, delivery area DA10) | LOD2 buildings in the site model |
 
 ## Coverage
@@ -73,6 +77,15 @@ Floating pieces under 300 triangles anywhere were also removed. Nothing else was
 - the mansard over the attic block and the copper roof over the centre pavilion, which the survey has as boxes
 
 Bay spacing, storey heights and column sizes are estimates, so these parts sit on layers marked approx. The entrance is centred on the park axis, about 0.5 m from the centre of the survey's roof block.
+
+**Streets.** `tools/scan-pipeline/streets.py` adds street detail from the datasets above:
+- crosswalks where two curb ramps face each other across the roadbed, drawn as NYC high-visibility bars (0.6 m bars with 0.6 m gaps, 3 m wide)
+- lane markings from the centerline's traffic direction and lane counts: double yellow on two-way streets, dashed white between travel lanes, parking-lane lines on two-way streets; they stop short of intersections and crosswalks
+- a signal pole on each sidewalk corner of the signalised intersections, at the ramps
+- street lights on the registered city poles (the registry lists only poles reserved for small cells, so most lights are missing)
+- litter baskets, parking meters and the bus shelter at their recorded positions
+
+Lane offsets assume 3.3 m lanes and 2.4 m parking lanes. Signal pole positions and head layout are approximate.
 
 **Estimated.** The courthouse stair (10 risers, 9 m wide, from photos), the lamp height and the bus shelter size are estimates and are marked approx. Furniture follows the standard NYC Parks designs (World's Fair bench, game table, spear-top fence, Parks lamp) at the scanned positions. Planting beds are drawn as groundcover, since the scan keyframes show grass and leaf litter there, with mulch rings at the park trees. Tree crowns are estimated from DBH, and their shape and colour follow the species. Terrain detail smaller than the spot-elevation spacing (drainage falls, utility covers) is not modelled.
 
